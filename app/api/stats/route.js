@@ -100,9 +100,10 @@ export async function GET(request) {
 
     // Fetch match details in parallel batches of 5
     const playerStats = {};
-    const batchSize = 5;
+    const batchSize = 3;
 
     for (let i = 0; i < teamMatches.length; i += batchSize) {
+      if (i > 0) await new Promise(r => setTimeout(r, 1000));
       const batch = teamMatches.slice(i, i + batchSize);
       const results = await Promise.all(
         batch.map(match =>
