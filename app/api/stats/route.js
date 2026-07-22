@@ -1,5 +1,9 @@
 import { TEAMS } from '@/lib/teams';
 
+// In-memory cache
+const cache = new Map();
+const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
 function processMatch(match, teamId) {
   if (!match || !match.homeTeam || !match.awayTeam) return [];
   const isHome = match.homeTeam?.id === teamId;
@@ -84,7 +88,12 @@ export async function GET(request) {
   const team = TEAMS.find(t => t.id === teamId);
   if (!team) return Response.json({ error: 'Team not found' }, { status: 404 });
 
-  try {
+  try {// Check in-memory cache
+    const cacheKey = `${teamId}_${competition}`;
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      return Response.json({ players: cached.players, teamId, competition, cached: true });
+    }
     // Fetch match list
     const listRes = await fetch(
       `https://api.football-data.org/v4/competitions/${team.competition}/matches?season=2025&status=FINISHED`,
@@ -157,7 +166,11 @@ export async function GET(request) {
     players.sort((a, b) =>
       (b.starts + b.subApps) - (a.starts + a.subApps) || a.name.localeCompare(b.name)
     );
-
+ // Store in cache
+    cache.set(`${teamId}_${competition}`, {
+      players,
+      timestamp: Date.now(),
+    });
     return Response.json({ players, teamId, competition });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
