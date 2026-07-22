@@ -145,7 +145,7 @@ function processMatch(match, teamId) {
   return Object.values(players).filter(p => p.starts > 0 || p.subApps > 0);
 }
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -180,10 +180,10 @@ export async function GET(request) {
         m.homeTeam?.id === teamId || m.awayTeam?.id === teamId
       );
 
-      // Fetch match details in batches of 3
-      const batchSize = 3;
+      // Fetch match details one at a time to avoid rate limiting
+      const batchSize = 1;
       for (let i = 0; i < teamMatches.length; i += batchSize) {
-        if (i > 0) await new Promise(r => setTimeout(r, 1000));
+        if (i > 0) await new Promise(r => setTimeout(r, 6500));
         const batch = teamMatches.slice(i, i + batchSize);
 
         const results = await Promise.all(
