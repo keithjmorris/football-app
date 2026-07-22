@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { TEAMS } from '@/lib/teams';
 import MatchCard from '@/components/MatchCard';
+import TeamSelector from '@/components/TeamSelector';
 import MatchDetails from '@/components/MatchDetails';
 
 function MatchSummary({ match }) {
@@ -94,22 +95,14 @@ export default function ResultsPage() {
         </div>
       </header>
 
-      <div className="team-filter-wrapper">
-        <select
-          className="team-filter-select"
-          value={selectedTeam}
-          onChange={e => {
-            setSelectedTeam(e.target.value);
-            setLoading(true);
-            setMatches([]);
-          }}
-        >
-          <option value="all">All Teams</option>
-          {TEAMS.map(t => (
-            <option key={t.id} value={t.id}>{t.shortName}</option>
-          ))}
-        </select>
-      </div>
+      <TeamSelector
+        selectedTeam={selectedTeam}
+        onChange={val => {
+          setSelectedTeam(val);
+          setLoading(true);
+          setMatches([]);
+        }}
+      />
 
       <div className="content">
         {loading && <p className="state-msg">Loading results…</p>}
