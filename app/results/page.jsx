@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { TEAMS } from '@/lib/teams';
 import MatchCard from '@/components/MatchCard';
 import MatchDetails from '@/components/MatchDetails';
-import TeamFilter from '@/components/TeamFilter';
 
 function MatchSummary({ match }) {
   const [summary, setSummary] = useState(null);
@@ -36,11 +36,10 @@ function MatchSummary({ match }) {
       </button>
       {open && (
         <div className="summary-box">
-          {loading ? (
-            <p className="summary-loading">Generating report…</p>
-          ) : (
-            <p className="summary-text">{summary}</p>
-          )}
+          {loading
+            ? <p className="summary-loading">Generating report…</p>
+            : <p className="summary-text">{summary}</p>
+          }
         </div>
       )}
     </div>
@@ -51,12 +50,15 @@ export default function ResultsPage() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [selectedTeam, setSelectedTeam] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState('all');
 
   useEffect(() => {
     async function fetchResults() {
       try {
-        const res = await fetch('/api/matches?status=FINISHED');
+        const url = selectedTeam === 'all'
+          ? '/api/matches?status=FINISHED'
+          : `/api/matches?status=FINISHED&teamId=${selectedTeam}`;
+        const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to fetch results');
         const data = await res.json();
         setMatches(data.matches || []);
@@ -67,17 +69,9 @@ export default function ResultsPage() {
       }
     }
     fetchResults();
-  }, []);
+  }, [selectedTeam]);
 
-  const filtered = matches.filter(m =>
-    !selectedTeam ||
-    m.homeTeam?.shortName === selectedTeam ||
-    m.awayTeam?.shortName === selectedTeam ||
-    m.homeTeam?.name === selectedTeam ||
-    m.awayTeam?.name === selectedTeam
-  );
-
-  const grouped = filtered.reduce((acc, match) => {
+  const grouped = matches.reduce((acc, match) => {
     const date = match.utcDate.split('T')[0];
     if (!acc[date]) acc[date] = [];
     acc[date].push(match);
@@ -88,21 +82,40 @@ export default function ResultsPage() {
     <main>
       <header className="site-header">
         <div className="header-inner">
-          <span className="trophy">🏆</span>
+          <div className="header-crests">
+            {TEAMS.map(t => (
+              <img key={t.id} src={t.crest} alt={t.shortName} className="header-crest" />
+            ))}
+          </div>
           <div>
             <h1 className="site-title">Results</h1>
-            <p className="site-subtitle">World Cup 2026</p>
+            <p className="site-subtitle">2026/27 Season</p>
           </div>
         </div>
       </header>
 
-      <TeamFilter matches={matches} selectedTeam={selectedTeam} onChange={setSelectedTeam} />
+      <div className="team-filter-wrapper">
+        <select
+          className="team-filter-select"
+          value={selectedTeam}
+          onChange={e => {
+            setSelectedTeam(e.target.value);
+            setLoading(true);
+            setMatches([]);
+          }}
+        >
+          <option value="all">All Teams</option>
+          {TEAMS.map(t => (
+            <option key={t.id} value={t.id}>{t.shortName}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="content">
         {loading && <p className="state-msg">Loading results…</p>}
         {error && <p className="state-msg error">Could not load results: {error}</p>}
         {!loading && !error && matches.length === 0 && (
-          <p className="state-msg">No results yet — the tournament hasn't started!</p>
+          <p className="state-msg">No results yet — the season hasn't started!</p>
         )}
         {!loading && !error && Object.entries(grouped)
           .sort(([a], [b]) => b.localeCompare(a))

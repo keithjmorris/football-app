@@ -1,37 +1,57 @@
+import { TEAMS } from '@/lib/teams';
+
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
-
-  const params = new URLSearchParams();
-  ['status', 'dateFrom', 'dateTo', 'stage', 'matchday', 'group'].forEach(key => {
-    const val = searchParams.get(key);
-    if (val) params.set(key, val);
-  });
-
-  const url = `https://api.football-data.org/v4/competitions/WC/matches${
-    params.toString() ? '?' + params.toString() : ''
-  }`;
+  const teamId = searchParams.get('teamId');
+  const status = searchParams.get('status');
 
   try {
-    const res = await fetch(url, {
-      headers: {
-        'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY,
-        'X-Unfold-Goals': 'true',
-        'X-Unfold-Bookings': 'true',
-        'X-Unfold-Subs': 'true',
-      },
-      next: { revalidate: 30 },
-    });
+    // Find which competition(s) to fetch
+    const teamsToFetch = teamId
+      ? TEAMS.filter(t => t.id === parseInt(teamId))
+      : TEAMS;
 
-    if (!res.ok) {
-      return Response.json(
-        { error: `football-data API error: ${res.status}` },
-        { status: res.status }
-      );
-    }
+    // Get unique competitions needed
+    const competitions = [...new Set(teamsToFetch.map(t => t.competition))];
 
-    const data = await res.json();
-    return Response.json(data);
+    // Fetch matches from each competition
+    const results = await Promise.all(
+      competitions.map(async (comp) => {
+        const params = new URLSearchParams({ season: '2026' });
+        if (status) params.set('status', status);
+
+        const res = await fetch(
+          `https://api.football-data.org/v4/competitions/${comp}/matches?${params}`,
+          {
+            headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY },
+            next: { revalidate: 60 },
+          }
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        return data.matches || [];
+      })
+    );
+
+    // Flatten and filter to only our tracked teams
+    const trackedIds = new Set(TEAMS.map(t => t.id));
+    const allMatches = results.flat().filter(m =>
+      trackedIds.has(m.homeTeam?.id) || trackedIds.has(m.awayTeam?.id)
+    );
+
+    // If teamId specified, filter further
+    const filtered = teamId
+      ? allMatches.filter(m =>
+          m.homeTeam?.id === parseInt(teamId) ||
+          m.awayTeam?.id === parseInt(teamId)
+        )
+      : allMatches;
+
+    // Sort by date
+    filtered.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+
+    return Response.json({ matches: filtered });
   } catch (err) {
-    return Response.json({ error: 'Failed to reach football-data API' }, { status: 500 });
+    return Response.json({ error: 'Failed to fetch matches' }, { status: 500 });
   }
 }

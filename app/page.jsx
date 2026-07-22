@@ -1,26 +1,28 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { TEAMS } from '@/lib/teams';
 import MatchCard from '@/components/MatchCard';
-import TabBar from '@/components/TabBar';
-import TeamFilter from '@/components/TeamFilter';
-
-const STAGES = ['All', 'Group Stage', 'Round of 16', 'Quarter-finals', 'Semi-finals', 'Final'];
 
 export default function FixturesPage() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [activeStage, setActiveStage] = useState('All');
-  const [selectedTeam, setSelectedTeam] = useState('');
+  const [selectedTeam, setSelectedTeam] = useState('all');
 
   useEffect(() => {
     async function fetchMatches() {
       try {
-        const res = await fetch('/api/matches');
+        const url = selectedTeam === 'all'
+          ? '/api/matches'
+          : `/api/matches?teamId=${selectedTeam}`;
+        const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to fetch matches');
         const data = await res.json();
-        setMatches(data.matches || []);
+        const upcoming = (data.matches || []).filter(
+          m => m.status !== 'FINISHED' && m.status !== 'AWARDED' && m.status !== 'CANCELLED'
+        );
+        setMatches(upcoming);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -28,26 +30,9 @@ export default function FixturesPage() {
       }
     }
     fetchMatches();
-  }, []);
+  }, [selectedTeam]);
 
-  const stageMap = {
-    'Group Stage': 'GROUP_STAGE',
-    'Round of 16': 'LAST_16',
-    'Quarter-finals': 'QUARTER_FINALS',
-    'Semi-finals': 'SEMI_FINALS',
-    'Final': 'FINAL',
-  };
-
-  const filtered = matches
-    .filter(m => activeStage === 'All' || m.stage === stageMap[activeStage])
-    .filter(m => !selectedTeam || 
-      m.homeTeam?.shortName === selectedTeam || 
-      m.awayTeam?.shortName === selectedTeam ||
-      m.homeTeam?.name === selectedTeam ||
-      m.awayTeam?.name === selectedTeam
-    );
-
-  const grouped = filtered.reduce((acc, match) => {
+  const grouped = matches.reduce((acc, match) => {
     const date = match.utcDate.split('T')[0];
     if (!acc[date]) acc[date] = [];
     acc[date].push(match);
@@ -55,25 +40,43 @@ export default function FixturesPage() {
   }, {});
 
   return (
-    <main className="page">
+    <main>
       <header className="site-header">
         <div className="header-inner">
-          <span className="trophy">🏆</span>
+          <div className="header-crests">
+            {TEAMS.map(t => (
+              <img key={t.id} src={t.crest} alt={t.shortName} className="header-crest" />
+            ))}
+          </div>
           <div>
-            <h1 className="site-title">World Cup 2026</h1>
-            <p className="site-subtitle">USA · Canada · Mexico</p>
+            <h1 className="site-title">Football Tracker</h1>
+            <p className="site-subtitle">2026/27 Season</p>
           </div>
         </div>
       </header>
 
-      <TabBar tabs={STAGES} active={activeStage} onChange={setActiveStage} />
-      <TeamFilter matches={matches} selectedTeam={selectedTeam} onChange={setSelectedTeam} />
+      <div className="team-filter-wrapper">
+        <select
+          className="team-filter-select"
+          value={selectedTeam}
+          onChange={e => {
+            setSelectedTeam(e.target.value);
+            setLoading(true);
+            setMatches([]);
+          }}
+        >
+          <option value="all">All Teams</option>
+          {TEAMS.map(t => (
+            <option key={t.id} value={t.id}>{t.shortName}</option>
+          ))}
+        </select>
+      </div>
 
       <div className="content">
         {loading && <p className="state-msg">Loading fixtures…</p>}
         {error && <p className="state-msg error">Could not load fixtures: {error}</p>}
-        {!loading && !error && Object.keys(grouped).length === 0 && (
-          <p className="state-msg">No matches found.</p>
+        {!loading && !error && matches.length === 0 && (
+          <p className="state-msg">No upcoming fixtures found.</p>
         )}
         {!loading && !error && Object.entries(grouped).sort().map(([date, dayMatches]) => (
           <section key={date} className="day-group">
