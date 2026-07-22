@@ -711,3 +711,151 @@ a { text-decoration: none; color: inherit; }
 .live-event-icon { flex-shrink: 0; font-size: 0.75rem; }
 .live-event-text { flex: 1; line-height: 1.3; }
 .live-event-min { font-size: 0.68rem; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+
+/* ── Team Picker ─────────────────────────────────────── */
+.picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+.picker-modal {
+  background: white;
+  border-radius: var(--radius);
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.picker-header {
+  background: var(--pitch);
+  padding: 1.25rem 1.25rem 1rem;
+  border-bottom: 3px solid var(--gold);
+}
+.picker-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+}
+.picker-subtitle {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.6);
+  margin-top: 0.25rem;
+}
+.picker-search {
+  margin: 0.75rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  outline: none;
+  flex-shrink: 0;
+}
+.picker-search:focus { border-color: var(--pitch); }
+.picker-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  padding: 0 0.75rem;
+  overflow-y: auto;
+  flex: 1;
+}
+.picker-team {
+  background: none;
+  border: 2px solid var(--card-border);
+  border-radius: var(--radius);
+  padding: 0.6rem 0.4rem;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s;
+  position: relative;
+}
+.picker-team:hover:not(.picker-disabled) {
+  border-color: var(--pitch);
+  background: #f0f4ff;
+}
+.picker-selected {
+  border-color: var(--gold) !important;
+  background: #fefce8 !important;
+}
+.picker-disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.picker-crest {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+.picker-name {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-align: center;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.picker-check {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 0.7rem;
+  color: var(--gold);
+  font-weight: 700;
+}
+.picker-footer {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--card-border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-shrink: 0;
+}
+.picker-selected-crests {
+  display: flex;
+  gap: 0.4rem;
+  flex: 1;
+}
+.picker-selected-crest {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+.picker-save {
+  background: var(--pitch);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.6rem 1.25rem;
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+.picker-save:hover:not(:disabled) { background: var(--pitch-mid); }
+.picker-save:disabled {
+  background: var(--muted);
+  cursor: not-allowed;
+}
+
+.nav-edit-teams {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  margin-left: auto;
+  color: var(--gold) !important;
+}
