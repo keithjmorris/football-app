@@ -18,10 +18,11 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${inter.variable} ${bebas.variable}`}>
       <body>
         <nav className="main-nav">
-          <Link href="/" className="nav-link">Fixtures</Link>
-          <Link href="/results" className="nav-link">Results</Link>
-          <Link href="/standings" className="nav-link">Tables</Link>
-        </nav>
+  <Link href="/" className="nav-link">Fixtures</Link>
+  <Link href="/results" className="nav-link">Results</Link>
+  <Link href="/standings" className="nav-link">Tables</Link>
+  <Link href="/stats" className="nav-link">Stats</Link>
+</nav>
         {children}
       </body>
     </html>

@@ -447,3 +447,177 @@ a { text-decoration: none; color: inherit; }
   text-transform: uppercase;
 }
 .team-selector-active .team-selector-name { color: var(--gold); }
+
+/* ── Stats Page ──────────────────────────────────────── */
+.stats-controls {
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--card-border);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 100%;
+}
+.stats-team-name {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--pitch);
+}
+.stats-team-crest {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
+.stats-toggles {
+  display: flex;
+  gap: 0.35rem;
+}
+.stats-toggle {
+  background: none;
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--muted);
+  font-family: var(--font-body);
+  transition: all 0.15s;
+}
+.stats-toggle:hover { border-color: var(--pitch); color: var(--pitch); }
+.stats-toggle.active {
+  background: var(--pitch);
+  border-color: var(--pitch);
+  color: white;
+}
+
+/* Sort controls */
+.sort-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+.sort-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-right: 0.25rem;
+}
+.sort-btn {
+  background: none;
+  border: 1px solid var(--card-border);
+  border-radius: 20px;
+  padding: 0.2rem 0.65rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--muted);
+  font-family: var(--font-body);
+  transition: all 0.15s;
+}
+.sort-btn:hover { border-color: var(--pitch); color: var(--pitch); }
+.sort-btn.active {
+  background: var(--pitch);
+  border-color: var(--pitch);
+  color: white;
+}
+
+/* Stats table */
+.stats-table-wrapper {
+  overflow-x: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.stats-table th {
+  background: var(--pitch);
+  color: rgba(255,255,255,0.7);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.5rem 0.5rem;
+  text-align: center;
+  white-space: nowrap;
+}
+.stats-table th.player-name-col { text-align: left; padding-left: 0.75rem; }
+.stats-table td {
+  padding: 0.5rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--card-border);
+}
+.stats-table tr:last-child td { border-bottom: none; }
+.player-row { cursor: pointer; transition: background 0.1s; }
+.player-row:hover { background: #f9fafb; }
+.player-row-expanded { background: #f0f9ff; }
+.player-name-col { text-align: left !important; padding-left: 0.75rem !important; }
+.player-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.83rem;
+}
+.player-position {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.expand-col { color: var(--muted); font-size: 0.65rem; }
+.stat-zero { color: var(--muted); font-size: 0.75rem; }
+.stat-badge {
+  display: inline-block;
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 3px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Player match detail */
+.player-detail-row td { padding: 0 !important; }
+.player-matches {
+  background: #f8fafc;
+  padding: 0.75rem;
+  border-top: 1px solid var(--card-border);
+}
+.player-match-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.75rem;
+}
+.player-match-table th {
+  background: var(--pitch-mid);
+  color: rgba(255,255,255,0.6);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.5rem;
+  text-align: center;
+}
+.player-match-table th:first-child { text-align: left; }
+.player-match-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--card-border);
+  color: var(--ink);
+}
+.player-match-table td:first-child { text-align: left; }
+.player-match-table tr:last-child td { border-bottom: none; }
