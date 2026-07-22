@@ -1,6 +1,7 @@
 import { TEAMS } from '@/lib/teams';
 
 function processMatch(match, teamId) {
+  if (!match || !match.homeTeam || !match.awayTeam) return [];
   const isHome = match.homeTeam?.id === teamId;
   const team = isHome ? match.homeTeam : match.awayTeam;
   const players = {};
