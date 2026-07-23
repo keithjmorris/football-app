@@ -27,13 +27,14 @@ function processMatch(match, teamId) {
   if (!match || !match.homeTeam || !match.awayTeam) return [];
   const isHome = match.homeTeam?.id === teamId;
   const team = isHome ? match.homeTeam : match.awayTeam;
+  const opponent = isHome ? match.awayTeam : match.homeTeam;
   if (!team) return [];
 
   const competition = match.competition?.code || 'UNKNOWN';
   const baseMatchInfo = {
     id: match.id,
     date: match.utcDate,
-    opponent: isHome ? match.awayTeam?.shortName : match.homeTeam?.shortName,
+    opponent: opponent?.shortName || opponent?.name,
     homeAway: isHome ? 'H' : 'A',
     score: `${match.score?.fullTime?.home}-${match.score?.fullTime?.away}`,
     competition,
@@ -48,17 +49,9 @@ function processMatch(match, teamId) {
   // Starting lineup
   for (const p of team.lineup || []) {
     players[p.id] = {
-      id: p.id,
-      name: p.name,
-      position: p.position,
-      shirtNumber: p.shirtNumber,
-      starts: 1,
-      subApps: 0,
-      minutesPlayed: 90,
-      goals: 0,
-      assists: 0,
-      yellowCards: 0,
-      redCards: 0,
+      id: p.id, name: p.name, position: p.position, shirtNumber: p.shirtNumber,
+      starts: 1, subApps: 0, minutesPlayed: 90,
+      goals: 0, assists: 0, yellowCards: 0, redCards: 0,
       matches: [{ ...baseMatchInfo, started: true, minutesPlayed: 90 }],
     };
   }
@@ -67,17 +60,9 @@ function processMatch(match, teamId) {
   for (const p of team.bench || []) {
     if (!players[p.id]) {
       players[p.id] = {
-        id: p.id,
-        name: p.name,
-        position: p.position,
-        shirtNumber: p.shirtNumber,
-        starts: 0,
-        subApps: 0,
-        minutesPlayed: 0,
-        goals: 0,
-        assists: 0,
-        yellowCards: 0,
-        redCards: 0,
+        id: p.id, name: p.name, position: p.position, shirtNumber: p.shirtNumber,
+        starts: 0, subApps: 0, minutesPlayed: 0,
+        goals: 0, assists: 0, yellowCards: 0, redCards: 0,
         matches: [],
       };
     }
@@ -87,36 +72,30 @@ function processMatch(match, teamId) {
   for (const sub of match.substitutions || []) {
     if (sub.team?.id !== teamId) continue;
     const minute = sub.minute || 90;
-
     if (players[sub.playerOut?.id]) {
       players[sub.playerOut.id].minutesPlayed = minute;
       const lastMatch = players[sub.playerOut.id].matches.at(-1);
       if (lastMatch) lastMatch.minutesPlayed = minute;
     }
-
     if (players[sub.playerIn?.id]) {
       const minsPlayed = 90 - minute;
       players[sub.playerIn.id].subApps = 1;
       players[sub.playerIn.id].minutesPlayed = minsPlayed;
       players[sub.playerIn.id].matches = [{
-        ...baseMatchInfo,
-        started: false,
-        minutesPlayed: minsPlayed,
-        cameOnMinute: minute,
+        ...baseMatchInfo, started: false,
+        minutesPlayed: minsPlayed, cameOnMinute: minute,
       }];
     }
   }
 
-  // Goals — store on player AND on their match entry
+  // Goals
   for (const goal of match.goals || []) {
     if (goal.team?.id !== teamId) continue;
-
     if (players[goal.scorer?.id]) {
       players[goal.scorer.id].goals += 1;
       const lastMatch = players[goal.scorer.id].matches.at(-1);
       if (lastMatch) lastMatch.goals = (lastMatch.goals || 0) + 1;
     }
-
     if (goal.assist && players[goal.assist?.id]) {
       players[goal.assist.id].assists += 1;
       const lastMatch = players[goal.assist.id].matches.at(-1);
@@ -124,10 +103,9 @@ function processMatch(match, teamId) {
     }
   }
 
-  // Bookings — store on player AND on their match entry
+  // Bookings
   for (const booking of match.bookings || []) {
     if (booking.team?.id !== teamId) continue;
-
     if (players[booking.player?.id]) {
       const isRed = booking.card === 'RED' || booking.card === 'YELLOW_RED';
       if (isRed) {
@@ -145,7 +123,104 @@ function processMatch(match, teamId) {
   return Object.values(players).filter(p => p.starts > 0 || p.subApps > 0);
 }
 
-export const maxDuration = 300;
+function processTeamStats(match, teamId) {
+  if (!match || !match.homeTeam || !match.awayTeam) return null;
+  const isHome = match.homeTeam?.id === teamId;
+  const team = isHome ? match.homeTeam : match.awayTeam;
+  const opponent = isHome ? match.awayTeam : match.homeTeam;
+  const stats = team?.statistics;
+  if (!stats) return null;
+
+  const homeScore = match.score?.fullTime?.home ?? 0;
+  const awayScore = match.score?.fullTime?.away ?? 0;
+  const teamScore = isHome ? homeScore : awayScore;
+  const oppScore = isHome ? awayScore : homeScore;
+
+  const result = teamScore > oppScore ? 'W' : teamScore < oppScore ? 'L' : 'D';
+  const cleanSheet = oppScore === 0;
+
+  return {
+    competition: match.competition?.code || 'UNKNOWN',
+    date: match.utcDate,
+    opponent: opponent?.shortName || opponent?.name,
+    homeAway: isHome ? 'H' : 'A',
+    result,
+    goalsFor: teamScore,
+    goalsAgainst: oppScore,
+    cleanSheet,
+    possession: stats.ball_possession || 0,
+    shotsOnGoal: stats.shots_on_goal || 0,
+    shotsOffGoal: stats.shots_off_goal || 0,
+    shots: stats.shots || 0,
+    saves: stats.saves || 0,
+    corners: stats.corner_kicks || 0,
+    fouls: stats.fouls || 0,
+    offsides: stats.offsides || 0,
+    yellowCards: stats.yellow_cards || 0,
+    redCards: stats.red_cards || 0,
+  };
+}
+
+function aggregateTeamStats(matchStats) {
+  if (!matchStats || matchStats.length === 0) return null;
+  const count = matchStats.length;
+
+  const totals = matchStats.reduce((acc, m) => ({
+    wins: acc.wins + (m.result === 'W' ? 1 : 0),
+    draws: acc.draws + (m.result === 'D' ? 1 : 0),
+    losses: acc.losses + (m.result === 'L' ? 1 : 0),
+    goalsFor: acc.goalsFor + m.goalsFor,
+    goalsAgainst: acc.goalsAgainst + m.goalsAgainst,
+    cleanSheets: acc.cleanSheets + (m.cleanSheet ? 1 : 0),
+    possession: acc.possession + m.possession,
+    shotsOnGoal: acc.shotsOnGoal + m.shotsOnGoal,
+    shotsOffGoal: acc.shotsOffGoal + m.shotsOffGoal,
+    shots: acc.shots + m.shots,
+    saves: acc.saves + m.saves,
+    corners: acc.corners + m.corners,
+    fouls: acc.fouls + m.fouls,
+    yellowCards: acc.yellowCards + m.yellowCards,
+    redCards: acc.redCards + m.redCards,
+  }), {
+    wins: 0, draws: 0, losses: 0,
+    goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
+    possession: 0, shotsOnGoal: 0, shotsOffGoal: 0,
+    shots: 0, saves: 0, corners: 0, fouls: 0,
+    yellowCards: 0, redCards: 0,
+  });
+
+  // Last 5 form
+  const form = matchStats
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5)
+    .map(m => m.result)
+    .reverse();
+
+  return {
+    played: count,
+    wins: totals.wins,
+    draws: totals.draws,
+    losses: totals.losses,
+    goalsFor: totals.goalsFor,
+    goalsAgainst: totals.goalsAgainst,
+    goalDifference: totals.goalsFor - totals.goalsAgainst,
+    cleanSheets: totals.cleanSheets,
+    points: totals.wins * 3 + totals.draws,
+    pointsPerGame: ((totals.wins * 3 + totals.draws) / count).toFixed(2),
+    avgPossession: Math.round(totals.possession / count),
+    avgShotsOnGoal: (totals.shotsOnGoal / count).toFixed(1),
+    avgShots: (totals.shots / count).toFixed(1),
+    avgSaves: (totals.saves / count).toFixed(1),
+    avgCorners: (totals.corners / count).toFixed(1),
+    avgFouls: (totals.fouls / count).toFixed(1),
+    totalYellowCards: totals.yellowCards,
+    totalRedCards: totals.redCards,
+    form,
+    matches: matchStats.sort((a, b) => new Date(b.date) - new Date(a.date)),
+  };
+}
+
+export const maxDuration = 60;
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
@@ -160,27 +235,26 @@ export async function GET(request) {
   const headers = { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY };
 
   try {
-    // Check cache for raw stats (always cache the 'all' version)
     const rawCacheKey = `raw_${teamId}`;
     let playerStats = {};
+    let teamMatchStats = [];
 
     const cached = cache.get(rawCacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       playerStats = cached.playerStats;
+      teamMatchStats = cached.teamMatchStats;
     } else {
-      // Fetch match list for last season
       const listData = await fetchWithRetry(
         `https://api.football-data.org/v4/competitions/${team.competition}/matches?season=2025&status=FINISHED`,
         headers
       );
 
-      if (!listData) throw new Error('Failed to fetch match list');
+      if (!listData) throw new Error('Match list error: failed to fetch');
 
       const teamMatches = (listData.matches || []).filter(m =>
         m.homeTeam?.id === teamId || m.awayTeam?.id === teamId
       );
 
-      // Fetch match details one at a time to avoid rate limiting
       const batchSize = 1;
       for (let i = 0; i < teamMatches.length; i += batchSize) {
         if (i > 0) await new Promise(r => setTimeout(r, 6500));
@@ -201,8 +275,9 @@ export async function GET(request) {
 
         for (const fullMatch of results) {
           if (!fullMatch) continue;
-          const matchPlayers = processMatch(fullMatch, teamId);
 
+          // Player stats
+          const matchPlayers = processMatch(fullMatch, teamId);
           for (const p of matchPlayers) {
             if (!playerStats[p.id]) {
               playerStats[p.id] = { ...p, matches: [...p.matches] };
@@ -217,15 +292,23 @@ export async function GET(request) {
               playerStats[p.id].matches.push(...p.matches);
             }
           }
+
+          // Team stats
+          const matchTeamStats = processTeamStats(fullMatch, teamId);
+          if (matchTeamStats) teamMatchStats.push(matchTeamStats);
         }
       }
 
-      // Cache raw stats
-      cache.set(rawCacheKey, { playerStats, timestamp: Date.now() });
+      cache.set(rawCacheKey, {
+        playerStats,
+        teamMatchStats,
+        timestamp: Date.now(),
+      });
     }
 
-    // Now apply competition filter
+    // Apply competition filter to player stats
     let players = Object.values(playerStats);
+    let filteredTeamMatchStats = teamMatchStats;
 
     if (competition !== 'all') {
       players = players.map(p => {
@@ -243,6 +326,8 @@ export async function GET(request) {
           redCards: compMatches.reduce((s, m) => s + (m.redCards || 0), 0),
         };
       }).filter(Boolean);
+
+      filteredTeamMatchStats = teamMatchStats.filter(m => m.competition === competition);
     }
 
     players.sort((a, b) =>
@@ -250,7 +335,9 @@ export async function GET(request) {
       a.name.localeCompare(b.name)
     );
 
-    return Response.json({ players, teamId, competition });
+    const teamStats = aggregateTeamStats(filteredTeamMatchStats);
+
+    return Response.json({ players, teamStats, teamId, competition });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }

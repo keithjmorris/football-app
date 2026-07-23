@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import MatchStats from '@/components/MatchStats';
+import { TEAMS } from '@/lib/teams';
 
 function CardIcon({ type }) {
   const colour = type === 'RED' ? '#dc2626' : type === 'YELLOW_RED' ? '#f97316' : '#eab308';
@@ -23,15 +25,12 @@ function LineupList({ players, substitutions, teamId }) {
   const subbedOff = substitutions
     ?.filter(s => s.team?.id === teamId)
     .map(s => s.playerOut?.id) || [];
-  const subbedOn = substitutions
-    ?.filter(s => s.team?.id === teamId)
-    .map(s => ({ id: s.playerIn?.id, minute: s.minute, out: s.playerOut?.name })) || [];
 
   return (
     <div>
       {players.map(p => {
         const wasSubbed = subbedOff.includes(p.id);
-        const sub = subbedOn.find(s => s.id === p.id);
+        const subMinute = substitutions?.find(s => s.playerOut?.id === p.id)?.minute;
         return (
           <div key={p.id} className="lineup-player">
             <span className="lineup-shirt">{p.shirtNumber}</span>
@@ -41,12 +40,7 @@ function LineupList({ players, substitutions, teamId }) {
             </span>
             {wasSubbed && (
               <span className="sub-out" style={{ fontSize: '0.7rem', marginLeft: 4 }}>
-                ▼{substitutions?.find(s => s.playerOut?.id === p.id)?.minute}'
-              </span>
-            )}
-            {sub && (
-              <span className="sub-in" style={{ fontSize: '0.7rem', marginLeft: 4 }}>
-                ▲{sub.minute}'
+                ▼{subMinute}'
               </span>
             )}
           </div>
@@ -71,7 +65,6 @@ export default function MatchDetails({ match }) {
       const data = await res.json();
       setFullMatch(data);
     } catch {
-      // fall back to match data we already have
       setFullMatch(match);
     } finally {
       setLoading(false);
@@ -81,12 +74,16 @@ export default function MatchDetails({ match }) {
   const data = fullMatch || match;
   const { homeTeam, awayTeam, goals, bookings, substitutions, venue, attendance, referees } = data;
 
-  const homeGoals = goals?.filter(g => g.team?.id === homeTeam.id) || [];
-  const awayGoals = goals?.filter(g => g.team?.id === awayTeam.id) || [];
-  const homeBookings = bookings?.filter(b => b.team?.id === homeTeam.id) || [];
-  const awayBookings = bookings?.filter(b => b.team?.id === awayTeam.id) || [];
-  const homeSubs = substitutions?.filter(s => s.team?.id === homeTeam.id) || [];
-  const awaySubs = substitutions?.filter(s => s.team?.id === awayTeam.id) || [];
+  // Find team colours
+  const homeTeamConfig = TEAMS.find(t => t.id === homeTeam?.id);
+  const awayTeamConfig = TEAMS.find(t => t.id === awayTeam?.id);
+
+  const homeGoals = goals?.filter(g => g.team?.id === homeTeam?.id) || [];
+  const awayGoals = goals?.filter(g => g.team?.id === awayTeam?.id) || [];
+  const homeBookings = bookings?.filter(b => b.team?.id === homeTeam?.id) || [];
+  const awayBookings = bookings?.filter(b => b.team?.id === awayTeam?.id) || [];
+  const homeSubs = substitutions?.filter(s => s.team?.id === homeTeam?.id) || [];
+  const awaySubs = substitutions?.filter(s => s.team?.id === awayTeam?.id) || [];
   const referee = referees?.find(r => r.type === 'REFEREE');
 
   return (
@@ -107,6 +104,14 @@ export default function MatchDetails({ match }) {
                   {referee ? ` · Referee: ${referee.name}` : ''}
                 </div>
               )}
+
+              {/* Match Stats */}
+              <MatchStats
+                homeTeam={data.homeTeam}
+                awayTeam={data.awayTeam}
+                homeColor={homeTeamConfig?.color}
+                awayColor={awayTeamConfig?.color}
+              />
 
               {/* Goals */}
               {goals?.length > 0 && (
@@ -204,23 +209,27 @@ export default function MatchDetails({ match }) {
                 <div className="details-section-title">👕 Starting Lineups</div>
                 <div className="details-two-col">
                   <div>
-                    <div className="lineup-team-name">{homeTeam.shortName || homeTeam.name} {homeTeam.formation ? `(${homeTeam.formation})` : ''}</div>
-                    <LineupList players={homeTeam.lineup} substitutions={substitutions} teamId={homeTeam.id} />
+                    <div className="lineup-team-name">
+                      {homeTeam?.shortName || homeTeam?.name} {homeTeam?.formation ? `(${homeTeam.formation})` : ''}
+                    </div>
+                    <LineupList players={homeTeam?.lineup} substitutions={substitutions} teamId={homeTeam?.id} />
                   </div>
                   <div>
-                    <div className="lineup-team-name">{awayTeam.shortName || awayTeam.name} {awayTeam.formation ? `(${awayTeam.formation})` : ''}</div>
-                    <LineupList players={awayTeam.lineup} substitutions={substitutions} teamId={awayTeam.id} />
+                    <div className="lineup-team-name">
+                      {awayTeam?.shortName || awayTeam?.name} {awayTeam?.formation ? `(${awayTeam.formation})` : ''}
+                    </div>
+                    <LineupList players={awayTeam?.lineup} substitutions={substitutions} teamId={awayTeam?.id} />
                   </div>
                 </div>
               </div>
 
               {/* Bench */}
-              {(homeTeam.bench?.length > 0 || awayTeam.bench?.length > 0) && (
+              {(homeTeam?.bench?.length > 0 || awayTeam?.bench?.length > 0) && (
                 <div className="details-section">
                   <div className="details-section-title">🪑 Substitutes</div>
                   <div className="details-two-col">
                     <div>
-                      {homeTeam.bench?.map(p => (
+                      {homeTeam?.bench?.map(p => (
                         <div key={p.id} className="lineup-player">
                           <span className="lineup-shirt">{p.shirtNumber}</span>
                           <span>{p.name}</span>
@@ -233,7 +242,7 @@ export default function MatchDetails({ match }) {
                       ))}
                     </div>
                     <div>
-                      {awayTeam.bench?.map(p => (
+                      {awayTeam?.bench?.map(p => (
                         <div key={p.id} className="lineup-player">
                           <span className="lineup-shirt">{p.shirtNumber}</span>
                           <span>{p.name}</span>
