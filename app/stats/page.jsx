@@ -273,8 +273,16 @@ export default function StatsPage() {
         {loading && <p className="state-msg">Loading stats… this may take a moment on first load.</p>}
         {error && <p className="state-msg error">Could not load stats: {error}</p>}
         {!loading && !error && players.length === 0 && (
-          <p className="state-msg">No stats available yet — check back once matches have been played.</p>
-        )}
+  <div className="state-msg">
+    <p>No stats available yet.</p>
+    <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+      {selectedTeam?.competition === 'ELC'
+        ? `${selectedTeam.shortName} stats will be available once the Championship season starts on 9th August.`
+        : `${selectedTeam?.shortName} stats will be available once the season starts.`
+      }
+    </p>
+  </div>
+)}
 
         {!loading && !error && players.length > 0 && (
           <>
