@@ -1,165 +1,22 @@
 import { TEAMS } from '@/lib/teams';
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
-// In-memory cache
+const firebaseConfig = {
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+};
+
+const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// In-memory cache to avoid repeated Firestore reads
 const cache = new Map();
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
-
-async function fetchWithRetry(url, headers, retries = 3) {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      const r = await fetch(url, { headers });
-      if (r.status === 429) {
-        await new Promise(res => setTimeout(res, 2000 * (attempt + 1)));
-        continue;
-      }
-      const data = await r.json();
-      if (data.message) return null;
-      return data;
-    } catch {
-      if (attempt === retries - 1) return null;
-      await new Promise(res => setTimeout(res, 1000));
-    }
-  }
-  return null;
-}
-
-function processMatch(match, teamId) {
-  if (!match || !match.homeTeam || !match.awayTeam) return [];
-  const isHome = match.homeTeam?.id === teamId;
-  const team = isHome ? match.homeTeam : match.awayTeam;
-  const opponent = isHome ? match.awayTeam : match.homeTeam;
-  if (!team) return [];
-
-  const competition = match.competition?.code || 'UNKNOWN';
-  const baseMatchInfo = {
-    id: match.id,
-    date: match.utcDate,
-    opponent: opponent?.shortName || opponent?.name,
-    homeAway: isHome ? 'H' : 'A',
-    score: `${match.score?.fullTime?.home}-${match.score?.fullTime?.away}`,
-    competition,
-    goals: 0,
-    assists: 0,
-    yellowCards: 0,
-    redCards: 0,
-  };
-
-  const players = {};
-
-  // Starting lineup
-  for (const p of team.lineup || []) {
-    players[p.id] = {
-      id: p.id, name: p.name, position: p.position, shirtNumber: p.shirtNumber,
-      starts: 1, subApps: 0, minutesPlayed: 90,
-      goals: 0, assists: 0, yellowCards: 0, redCards: 0,
-      matches: [{ ...baseMatchInfo, started: true, minutesPlayed: 90 }],
-    };
-  }
-
-  // Bench
-  for (const p of team.bench || []) {
-    if (!players[p.id]) {
-      players[p.id] = {
-        id: p.id, name: p.name, position: p.position, shirtNumber: p.shirtNumber,
-        starts: 0, subApps: 0, minutesPlayed: 0,
-        goals: 0, assists: 0, yellowCards: 0, redCards: 0,
-        matches: [],
-      };
-    }
-  }
-
-  // Substitutions
-  for (const sub of match.substitutions || []) {
-    if (sub.team?.id !== teamId) continue;
-    const minute = sub.minute || 90;
-    if (players[sub.playerOut?.id]) {
-      players[sub.playerOut.id].minutesPlayed = minute;
-      const lastMatch = players[sub.playerOut.id].matches.at(-1);
-      if (lastMatch) lastMatch.minutesPlayed = minute;
-    }
-    if (players[sub.playerIn?.id]) {
-      const minsPlayed = 90 - minute;
-      players[sub.playerIn.id].subApps = 1;
-      players[sub.playerIn.id].minutesPlayed = minsPlayed;
-      players[sub.playerIn.id].matches = [{
-        ...baseMatchInfo, started: false,
-        minutesPlayed: minsPlayed, cameOnMinute: minute,
-      }];
-    }
-  }
-
-  // Goals
-  for (const goal of match.goals || []) {
-    if (goal.team?.id !== teamId) continue;
-    if (players[goal.scorer?.id]) {
-      players[goal.scorer.id].goals += 1;
-      const lastMatch = players[goal.scorer.id].matches.at(-1);
-      if (lastMatch) lastMatch.goals = (lastMatch.goals || 0) + 1;
-    }
-    if (goal.assist && players[goal.assist?.id]) {
-      players[goal.assist.id].assists += 1;
-      const lastMatch = players[goal.assist.id].matches.at(-1);
-      if (lastMatch) lastMatch.assists = (lastMatch.assists || 0) + 1;
-    }
-  }
-
-  // Bookings
-  for (const booking of match.bookings || []) {
-    if (booking.team?.id !== teamId) continue;
-    if (players[booking.player?.id]) {
-      const isRed = booking.card === 'RED' || booking.card === 'YELLOW_RED';
-      if (isRed) {
-        players[booking.player.id].redCards += 1;
-        const lastMatch = players[booking.player.id].matches.at(-1);
-        if (lastMatch) lastMatch.redCards = (lastMatch.redCards || 0) + 1;
-      } else {
-        players[booking.player.id].yellowCards += 1;
-        const lastMatch = players[booking.player.id].matches.at(-1);
-        if (lastMatch) lastMatch.yellowCards = (lastMatch.yellowCards || 0) + 1;
-      }
-    }
-  }
-
-  return Object.values(players).filter(p => p.starts > 0 || p.subApps > 0);
-}
-
-function processTeamStats(match, teamId) {
-  if (!match || !match.homeTeam || !match.awayTeam) return null;
-  const isHome = match.homeTeam?.id === teamId;
-  const team = isHome ? match.homeTeam : match.awayTeam;
-  const opponent = isHome ? match.awayTeam : match.homeTeam;
-  const stats = team?.statistics;
-  if (!stats) return null;
-
-  const homeScore = match.score?.fullTime?.home ?? 0;
-  const awayScore = match.score?.fullTime?.away ?? 0;
-  const teamScore = isHome ? homeScore : awayScore;
-  const oppScore = isHome ? awayScore : homeScore;
-
-  const result = teamScore > oppScore ? 'W' : teamScore < oppScore ? 'L' : 'D';
-  const cleanSheet = oppScore === 0;
-
-  return {
-    competition: match.competition?.code || 'UNKNOWN',
-    date: match.utcDate,
-    opponent: opponent?.shortName || opponent?.name,
-    homeAway: isHome ? 'H' : 'A',
-    result,
-    goalsFor: teamScore,
-    goalsAgainst: oppScore,
-    cleanSheet,
-    possession: stats.ball_possession || 0,
-    shotsOnGoal: stats.shots_on_goal || 0,
-    shotsOffGoal: stats.shots_off_goal || 0,
-    shots: stats.shots || 0,
-    saves: stats.saves || 0,
-    corners: stats.corner_kicks || 0,
-    fouls: stats.fouls || 0,
-    offsides: stats.offsides || 0,
-    yellowCards: stats.yellow_cards || 0,
-    redCards: stats.red_cards || 0,
-  };
-}
 
 function aggregateTeamStats(matchStats) {
   if (!matchStats || matchStats.length === 0) return null;
@@ -189,7 +46,6 @@ function aggregateTeamStats(matchStats) {
     yellowCards: 0, redCards: 0,
   });
 
-  // Last 5 form
   const form = matchStats
     .sort((a, b) => new Date(b.date) - new Date(a.date))
     .slice(0, 5)
@@ -220,8 +76,6 @@ function aggregateTeamStats(matchStats) {
   };
 }
 
-export const maxDuration = 60;
-
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const teamId = parseInt(searchParams.get('teamId'));
@@ -232,9 +86,8 @@ export async function GET(request) {
   const team = TEAMS.find(t => t.id === teamId);
   if (!team) return Response.json({ error: 'Team not found' }, { status: 404 });
 
-  const headers = { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY };
-
   try {
+    // Check in-memory cache first
     const rawCacheKey = `raw_${teamId}`;
     let playerStats = {};
     let teamMatchStats = [];
@@ -244,69 +97,25 @@ export async function GET(request) {
       playerStats = cached.playerStats;
       teamMatchStats = cached.teamMatchStats;
     } else {
-      const listData = await fetchWithRetry(
-        `https://api.football-data.org/v4/competitions/${team.competition}/matches?season=2025&status=FINISHED`,
-        headers
-      );
+      // Read from Firestore
+      const docRef = doc(db, 'player_stats', rawCacheKey);
+      const docSnap = await getDoc(docRef);
 
-      if (!listData) throw new Error('Match list error: failed to fetch');
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        playerStats = data.playerStats || {};
+        teamMatchStats = data.teamMatchStats || [];
 
-      const teamMatches = (listData.matches || []).filter(m =>
-        m.homeTeam?.id === teamId || m.awayTeam?.id === teamId
-      );
-
-      const batchSize = 1;
-      for (let i = 0; i < teamMatches.length; i += batchSize) {
-        if (i > 0) await new Promise(r => setTimeout(r, 6500));
-        const batch = teamMatches.slice(i, i + batchSize);
-
-        const results = await Promise.all(
-          batch.map(match => fetchWithRetry(
-            `https://api.football-data.org/v4/matches/${match.id}`,
-            {
-              ...headers,
-              'X-Unfold-Lineups': 'true',
-              'X-Unfold-Goals': 'true',
-              'X-Unfold-Bookings': 'true',
-              'X-Unfold-Subs': 'true',
-            }
-          ))
-        );
-
-        for (const fullMatch of results) {
-          if (!fullMatch) continue;
-
-          // Player stats
-          const matchPlayers = processMatch(fullMatch, teamId);
-          for (const p of matchPlayers) {
-            if (!playerStats[p.id]) {
-              playerStats[p.id] = { ...p, matches: [...p.matches] };
-            } else {
-              playerStats[p.id].starts += p.starts;
-              playerStats[p.id].subApps += p.subApps;
-              playerStats[p.id].minutesPlayed += p.minutesPlayed;
-              playerStats[p.id].goals += p.goals;
-              playerStats[p.id].assists += p.assists;
-              playerStats[p.id].yellowCards += p.yellowCards;
-              playerStats[p.id].redCards += p.redCards;
-              playerStats[p.id].matches.push(...p.matches);
-            }
-          }
-
-          // Team stats
-          const matchTeamStats = processTeamStats(fullMatch, teamId);
-          if (matchTeamStats) teamMatchStats.push(matchTeamStats);
-        }
+        // Store in memory cache
+        cache.set(rawCacheKey, {
+          playerStats,
+          teamMatchStats,
+          timestamp: Date.now(),
+        });
       }
-
-      cache.set(rawCacheKey, {
-        playerStats,
-        teamMatchStats,
-        timestamp: Date.now(),
-      });
     }
 
-    // Apply competition filter to player stats
+    // Apply competition filter
     let players = Object.values(playerStats);
     let filteredTeamMatchStats = teamMatchStats;
 
