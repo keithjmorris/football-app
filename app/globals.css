@@ -435,8 +435,8 @@ a { text-decoration: none; color: inherit; }
   opacity: 1;
 }
 .team-selector-crest {
-  width: 36px;
-  height: 36px;
+  width: 24px;
+  height: 24px;
   object-fit: contain;
 }
 .team-selector-name {
