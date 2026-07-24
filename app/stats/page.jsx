@@ -244,8 +244,9 @@ export default function StatsPage() {
               setExpanded(null);
             }}
           >
-            <img src={t.crest} alt="" className="stats-tab-crest" />
-            <span>{t.shortName}</span>
+<div style={{ width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+  <img src={t.crest} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+</div>            <span>{t.shortName}</span>
           </button>
         ))}
       </div>
