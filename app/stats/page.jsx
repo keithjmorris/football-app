@@ -267,15 +267,21 @@ export default function StatsPage() {
             <img src={selectedTeam.crest} alt="" className="stats-team-crest" />
             <span>{selectedTeam.name}</span>
           </div>
-          <div className="stats-toggles">
+           <div className="stats-toggles">
             <button
               className={`stats-toggle ${competition === 'all' ? 'active' : ''}`}
               onClick={() => setCompetition('all')}
             >All</button>
             <button
-              className={`stats-toggle ${competition === 'PL' ? 'active' : ''}`}
-              onClick={() => setCompetition('PL')}
+              className={`stats-toggle ${competition === selectedTeam?.competition ? 'active' : ''}`}
+              onClick={() => setCompetition(selectedTeam?.competition || 'PL')}
             >League</button>
+            {selectedTeam?.competition === 'PL' && (
+              <button
+                className={`stats-toggle ${competition === 'CL' ? 'active' : ''}`}
+                onClick={() => setCompetition('CL')}
+              >Champions League</button>
+            )}
           </div>
         </div>
       )}
