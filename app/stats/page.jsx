@@ -234,8 +234,8 @@ export default function StatsPage() {
       <div className="stats-team-tabs">
         {TEAMS.map(t => (
           <button
-            key={t.id}
-            className={`stats-team-tab ${selectedTeam?.id === t.id ? 'active' : ''}`}
+  key={t.id}
+  className={`stats-team-tab ${selectedTeam?.id === t.id ? 'active' : ''}`}
             style={selectedTeam?.id === t.id ? { borderBottomColor: t.color, color: t.color } : {}}
             onClick={() => {
               setSelectedTeam(t);
@@ -244,9 +244,19 @@ export default function StatsPage() {
               setExpanded(null);
             }}
           >
-<div style={{ width: 28, height: 28, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-  <img src={t.crest} alt="" style={{ width: 28, height: 28, objectFit: 'contain' }} />
-</div>            <span>{t.shortName}</span>
+<div style={{ width: 32, height: 32, flexShrink: 0, overflow: 'hidden' }}>
+  <img 
+    src={t.crest} 
+    alt="" 
+    style={{ 
+      width: '100%', 
+      height: '100%', 
+      objectFit: 'contain',
+      maxWidth: 32,
+      maxHeight: 32,
+    }} 
+  />
+</div>           <span>{t.shortName}</span>
           </button>
         ))}
       </div>
