@@ -435,10 +435,11 @@ a { text-decoration: none; color: inherit; }
   opacity: 1;
 }
 .team-selector-crest {
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   object-fit: contain;
 }
+
 .team-selector-name {
   font-size: 0.65rem;
   font-weight: 700;
@@ -860,4 +861,38 @@ a { text-decoration: none; color: inherit; }
   background: #f9fafb;
   border-bottom: 1px solid var(--card-border);
   border-top: 1px solid var(--card-border);
+
+  /* ── Stats Team Tabs ─────────────────────────────────── */
+.stats-team-tabs {
+  display: flex;
+  background: var(--pitch-mid);
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+  padding: 0 0.5rem;
+}
+.stats-team-tab {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255,255,255,0.6);
+  font-family: var(--font-body);
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.15s;
+  height: 60px;
+}
+.stats-team-tab:hover { color: white; }
+.stats-team-tab.active {
+  color: var(--gold);
+  border-bottom-color: var(--gold);
+}
+.stats-tab-crest {
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+}
 }
