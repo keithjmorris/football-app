@@ -869,7 +869,7 @@ a { text-decoration: none; color: inherit; }
   border-bottom: 1px solid rgba(255,255,255,0.1);
   padding: 0 0.5rem;
 }
-..stats-team-tab {
+.stats-team-tab {
   background: none;
   border: none;
   border-bottom: 3px solid transparent;
