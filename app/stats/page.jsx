@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { TEAMS } from '@/lib/teams';
 
 function StatBadge({ value, type }) {
@@ -38,8 +38,6 @@ function TeamSeasonStats({ stats, team }) {
           {stats.form?.map((r, i) => <FormBadge key={i} result={r} />)}
         </div>
       </div>
-
-      {/* Record */}
       <div className="team-stats-grid">
         <div className="team-stat-card">
           <span className="team-stat-value">{stats.played}</span>
@@ -74,8 +72,6 @@ function TeamSeasonStats({ stats, team }) {
           <span className="team-stat-label">Clean Sheets</span>
         </div>
       </div>
-
-      {/* Performance */}
       <div className="team-stats-divider">Performance Averages</div>
       <div className="team-stats-grid">
         <div className="team-stat-card">
@@ -158,7 +154,14 @@ function PlayerRow({ player, isExpanded, onToggle }) {
                     .sort((a, b) => new Date(a.date) - new Date(b.date))
                     .map((m, i) => (
                       <tr key={i}>
-                        <td>{new Date(m.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</td>
+                        <td>{(() => {
+                          try {
+                            const cleaned = String(m.date).replace(/(\d+)(st|nd|rd|th)/i, '$1').trim();
+                            const withYear = cleaned.includes('2025') || cleaned.includes('2026') ? cleaned : cleaned + ' 2025';
+                            const d = new Date(withYear);
+                            return isNaN(d.getTime()) ? m.date : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                          } catch { return m.date; }
+                        })()}</td>
                         <td>{m.opponent}</td>
                         <td>{m.homeAway}</td>
                         <td>{m.score}</td>
@@ -177,8 +180,66 @@ function PlayerRow({ player, isExpanded, onToggle }) {
   );
 }
 
+function aggregateTeamStats(teamMatchStats) {
+  const count = teamMatchStats.length;
+  if (count === 0) return null;
+
+  const totals = teamMatchStats.reduce((acc, m) => ({
+    wins: acc.wins + (m.result === 'W' ? 1 : 0),
+    draws: acc.draws + (m.result === 'D' ? 1 : 0),
+    losses: acc.losses + (m.result === 'L' ? 1 : 0),
+    goalsFor: acc.goalsFor + m.goalsFor,
+    goalsAgainst: acc.goalsAgainst + m.goalsAgainst,
+    cleanSheets: acc.cleanSheets + (m.cleanSheet ? 1 : 0),
+    possession: acc.possession + m.possession,
+    shotsOnGoal: acc.shotsOnGoal + m.shotsOnGoal,
+    shotsOffGoal: acc.shotsOffGoal + m.shotsOffGoal,
+    shots: acc.shots + m.shots,
+    saves: acc.saves + m.saves,
+    corners: acc.corners + m.corners,
+    fouls: acc.fouls + m.fouls,
+    yellowCards: acc.yellowCards + m.yellowCards,
+    redCards: acc.redCards + m.redCards,
+  }), {
+    wins: 0, draws: 0, losses: 0,
+    goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
+    possession: 0, shotsOnGoal: 0, shotsOffGoal: 0,
+    shots: 0, saves: 0, corners: 0, fouls: 0,
+    yellowCards: 0, redCards: 0,
+  });
+
+  const form = [...teamMatchStats]
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5)
+    .map(m => m.result)
+    .reverse();
+
+  return {
+    played: count,
+    wins: totals.wins,
+    draws: totals.draws,
+    losses: totals.losses,
+    goalsFor: totals.goalsFor,
+    goalsAgainst: totals.goalsAgainst,
+    goalDifference: totals.goalsFor - totals.goalsAgainst,
+    cleanSheets: totals.cleanSheets,
+    points: totals.wins * 3 + totals.draws,
+    pointsPerGame: ((totals.wins * 3 + totals.draws) / count).toFixed(2),
+    avgPossession: Math.round(totals.possession / count),
+    avgShotsOnGoal: (totals.shotsOnGoal / count).toFixed(1),
+    avgShots: (totals.shots / count).toFixed(1),
+    avgSaves: (totals.saves / count).toFixed(1),
+    avgCorners: (totals.corners / count).toFixed(1),
+    avgFouls: (totals.fouls / count).toFixed(1),
+    totalYellowCards: totals.yellowCards,
+    totalRedCards: totals.redCards,
+    form,
+  };
+}
+
 export default function StatsPage() {
   const [selectedTeam, setSelectedTeam] = useState(TEAMS[0]);
+  const [season, setSeason] = useState('2026');
   const [competition, setCompetition] = useState('all');
   const [players, setPlayers] = useState([]);
   const [teamStats, setTeamStats] = useState(null);
@@ -186,6 +247,7 @@ export default function StatsPage() {
   const [error, setError] = useState(null);
   const [expanded, setExpanded] = useState(null);
   const [sortBy, setSortBy] = useState('apps');
+  const rawDataCache = useRef({});
 
   useEffect(() => {
     if (!selectedTeam) return;
@@ -193,17 +255,107 @@ export default function StatsPage() {
     setError(null);
     setExpanded(null);
     setTeamStats(null);
+    setPlayers([]);
 
-    fetch(`/api/stats?teamId=${selectedTeam.id}&competition=${competition}`)
-      .then(r => r.json())
-      .then(data => {
-        if (data.error) throw new Error(data.error);
-        setPlayers(data.players || []);
-        setTeamStats(data.teamStats || null);
-      })
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [selectedTeam, competition]);
+    async function loadStats() {
+      try {
+        const cacheKey = `${selectedTeam.id}_${season}`;
+
+        if (rawDataCache.current[cacheKey]) {
+          applyFilter(rawDataCache.current[cacheKey]);
+          return;
+        }
+
+        const localKey = `stats_${selectedTeam.id}_${season}`;
+        const cached = localStorage.getItem(localKey);
+
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          const isHistorical = season !== '2026';
+          const cacheAge = Date.now() - parsed.timestamp;
+          const maxAge = isHistorical ? Infinity : 24 * 60 * 60 * 1000;
+
+          if (cacheAge < maxAge) {
+            rawDataCache.current[cacheKey] = parsed.data;
+            applyFilter(parsed.data);
+            return;
+          }
+        }
+
+        const { db } = await import('@/lib/firebase');
+        const { doc, getDoc } = await import('firebase/firestore');
+        const docRef = doc(db, 'player_stats', `raw_${selectedTeam.id}_${season}`);
+        const docSnap = await getDoc(docRef);
+
+        let data = { playerStats: {}, teamMatchStats: [] };
+
+        if (docSnap.exists()) {
+          const docData = docSnap.data();
+          data = {
+            playerStats: docData.playerStats || {},
+            teamMatchStats: docData.teamMatchStats || [],
+          };
+        }
+
+        rawDataCache.current[cacheKey] = data;
+        try {
+          localStorage.setItem(localKey, JSON.stringify({
+            data,
+            timestamp: Date.now(),
+          }));
+        } catch (e) {
+          console.warn('localStorage full, skipping cache');
+        }
+
+        applyFilter(data);
+
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    function applyFilter({ playerStats, teamMatchStats }) {
+      let players = Object.values(playerStats);
+      let matchStats = [...teamMatchStats];
+
+      if (competition !== 'all') {
+        const compCodes = competition === 'CL' ? ['CL'] :
+                          competition === 'PL' ? ['PL'] :
+                          competition === 'ELC' ? ['ELC'] :
+                          competition === 'LEAGUE' ? ['PL', 'ELC', 'EL1', 'EL2'] : null;
+        if (compCodes) {
+          players = players.map(p => {
+            const compMatches = p.matches.filter(m => compCodes.includes(m.competition));
+            if (compMatches.length === 0) return null;
+            return {
+              ...p,
+              matches: compMatches,
+              starts: compMatches.filter(m => m.started).length,
+              subApps: compMatches.filter(m => !m.started).length,
+              minutesPlayed: compMatches.reduce((s, m) => s + (m.minutesPlayed || 0), 0),
+              goals: compMatches.reduce((s, m) => s + (m.goals || 0), 0),
+              assists: compMatches.reduce((s, m) => s + (m.assists || 0), 0),
+              yellowCards: compMatches.reduce((s, m) => s + (m.yellowCards || 0), 0),
+              redCards: compMatches.reduce((s, m) => s + (m.redCards || 0), 0),
+            };
+          }).filter(Boolean);
+          matchStats = matchStats.filter(m => compCodes.includes(m.competition));
+        }
+      }
+
+      players.sort((a, b) =>
+        (b.starts + b.subApps) - (a.starts + a.subApps) ||
+        a.name.localeCompare(b.name)
+      );
+
+      setPlayers(players);
+      setTeamStats(aggregateTeamStats(matchStats));
+    }
+
+    loadStats();
+  }, [selectedTeam, season, competition]);
 
   const sorted = [...players].sort((a, b) => {
     if (sortBy === 'apps') return (b.starts + b.subApps) - (a.starts + a.subApps);
@@ -225,17 +377,16 @@ export default function StatsPage() {
           </div>
           <div>
             <h1 className="site-title">Stats</h1>
-            <p className="site-subtitle">2026/27 Season</p>
+            <p className="site-subtitle">Season</p>
           </div>
         </div>
       </header>
 
-      {/* Team tabs */}
       <div className="stats-team-tabs">
         {TEAMS.map(t => (
           <button
-  key={t.id}
-  className={`stats-team-tab ${selectedTeam?.id === t.id ? 'active' : ''}`}
+            key={t.id}
+            className={`stats-team-tab ${selectedTeam?.id === t.id ? 'active' : ''}`}
             style={selectedTeam?.id === t.id ? { borderBottomColor: t.color, color: t.color } : {}}
             onClick={() => {
               setSelectedTeam(t);
@@ -244,19 +395,13 @@ export default function StatsPage() {
               setExpanded(null);
             }}
           >
-<div style={{ width: 32, height: 32, flexShrink: 0, overflow: 'hidden' }}>
-  <img 
-    src={t.crest} 
-    alt="" 
-    style={{ 
-      width: '100%', 
-      height: '100%', 
-      objectFit: 'contain',
-      maxWidth: 32,
-      maxHeight: 32,
-    }} 
-  />
-</div>           <span>{t.shortName}</span>
+            <div style={{ width: 32, height: 32, flexShrink: 0, overflow: 'hidden' }}>
+              <img
+                src={t.crest}
+                alt=""
+                style={{ width: '100%', height: '100%', objectFit: 'contain', maxWidth: 32, maxHeight: 32 }}
+              />
+            </div>
           </button>
         ))}
       </div>
@@ -265,46 +410,58 @@ export default function StatsPage() {
         <div className="stats-controls">
           <div className="stats-team-name">
             <img src={selectedTeam.crest} alt="" className="stats-team-crest" />
-            <span>{selectedTeam.name}</span>
           </div>
-           <div className="stats-toggles">
-            <button
-              className={`stats-toggle ${competition === 'all' ? 'active' : ''}`}
-              onClick={() => setCompetition('all')}
-            >All</button>
-            <button
-              className={`stats-toggle ${competition === selectedTeam?.competition ? 'active' : ''}`}
-              onClick={() => setCompetition(selectedTeam?.competition || 'PL')}
-            >League</button>
-            {selectedTeam?.competition === 'PL' && (
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div className="stats-toggles">
               <button
-                className={`stats-toggle ${competition === 'CL' ? 'active' : ''}`}
-                onClick={() => setCompetition('CL')}
-              >Champions League</button>
-            )}
+                className={`stats-toggle ${season === '2026' ? 'active' : ''}`}
+                onClick={() => { setSeason('2026'); setCompetition('all'); }}
+              >2026/27</button>
+              <button
+                className={`stats-toggle ${season === '2025' ? 'active' : ''}`}
+                onClick={() => { setSeason('2025'); setCompetition('all'); }}
+              >2025/26</button>
+            </div>
+            <div className="stats-toggles">
+              <button
+                className={`stats-toggle ${competition === 'all' ? 'active' : ''}`}
+                onClick={() => setCompetition('all')}
+              >All</button>
+              <button
+                className={`stats-toggle ${competition === selectedTeam?.competition ? 'active' : ''}`}
+                onClick={() => setCompetition(selectedTeam?.competition || 'PL')}
+              >League</button>
+              {selectedTeam?.competition === 'PL' && (
+                <button
+                  className={`stats-toggle ${competition === 'CL' ? 'active' : ''}`}
+                  onClick={() => setCompetition('CL')}
+                >Champions League</button>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       <div className="content">
-        {loading && <p className="state-msg">Loading stats… this may take a moment on first load.</p>}
+        {loading && <p className="state-msg">Loading player stats…</p>}
         {error && <p className="state-msg error">Could not load stats: {error}</p>}
-        {!loading && !error && players.length === 0 && (
-  <div className="state-msg">
-    <p>No stats available yet.</p>
-    <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
-      {selectedTeam?.competition === 'ELC'
-        ? `${selectedTeam.shortName} stats will be available once the Championship season starts on 9th August.`
-        : `${selectedTeam?.shortName} stats will be available once the season starts.`
-      }
-    </p>
-  </div>
-)}
+        {!loading && !error && players.length === 0 && selectedTeam && (
+          <div className="state-msg">
+            <p>No stats available yet for {season === '2026' ? '2026/27' : '2025/26'}.</p>
+            <p style={{ marginTop: '0.5rem', fontSize: '0.85rem' }}>
+              {season === '2026'
+                ? selectedTeam?.competition === 'ELC'
+                  ? `${selectedTeam.shortName} stats will be available once the Championship season starts on 9th August.`
+                  : `${selectedTeam?.shortName} stats will be available once the 2026/27 season starts.`
+                : `No 2025/26 stats available for ${selectedTeam.shortName}.`
+              }
+            </p>
+          </div>
+        )}
 
         {!loading && !error && players.length > 0 && (
           <>
             <TeamSeasonStats stats={teamStats} team={selectedTeam} />
-
             <div className="sort-controls">
               <span className="sort-label">Sort by:</span>
               {[
@@ -318,12 +475,9 @@ export default function StatsPage() {
                   key={s.key}
                   className={`sort-btn ${sortBy === s.key ? 'active' : ''}`}
                   onClick={() => setSortBy(s.key)}
-                >
-                  {s.label}
-                </button>
+                >{s.label}</button>
               ))}
             </div>
-
             <div className="stats-table-wrapper">
               <table className="stats-table">
                 <thead>
