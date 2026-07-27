@@ -16,8 +16,9 @@ export async function GET(request) {
     }
 
     if (ids.length === 0) {
-      return Response.json({ matches: [] });
-    }
+  // Default to all tracked teams
+  ids = [57, 61, 60, 341]; // Arsenal, Chelsea, Bolton, Leeds
+}
 
     // Determine which competitions we need
     // Fetch from both PL and ELC to cover all cases

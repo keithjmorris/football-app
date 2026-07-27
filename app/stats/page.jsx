@@ -429,8 +429,7 @@ export default function StatsPage() {
               >All</button>
               <button
                 className={`stats-toggle ${competition === selectedTeam?.competition ? 'active' : ''}`}
-                onClick={() => setCompetition(selectedTeam?.competition || 'PL')}
-              >League</button>
+onClick={() => setCompetition('LEAGUE')}              >League</button>
               {selectedTeam?.competition === 'PL' && (
                 <button
                   className={`stats-toggle ${competition === 'CL' ? 'active' : ''}`}

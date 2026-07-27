@@ -13,11 +13,7 @@ const firebaseConfig = {
 const FOOTBALL_DATA_KEY = "f60422be72c645dfb2f1bade64df2999";
 
 const TEAMS = [
-  
-  { id: 64,  competition: 'PL', shortName: 'Liverpool' },
-  { id: 65,  competition: 'PL', shortName: 'Man City' },
-  { id: 67,  competition: 'PL', shortName: 'Newcastle' },
-  { id: 73,  competition: 'PL', shortName: 'Tottenham' },
+  { id: 341, competition: 'PL', shortName: 'Leeds United' },
 ];
 
 const app = initializeApp(firebaseConfig);
@@ -166,10 +162,34 @@ async function processTeam(team) {
   const headers = { 'X-Auth-Token': FOOTBALL_DATA_KEY };
 
   // Fetch from league competition
-  const listData = await fetchWithRetry(
-    `https://api.football-data.org/v4/competitions/${team.competition}/matches?season=2025&status=FINISHED`,
+  // Fetch league matches
+const listData = await fetchWithRetry(
+  `https://api.football-data.org/v4/competitions/${team.competition}/matches?season=2025&status=FINISHED`,
+  headers
+);
+
+if (!listData) { console.log('Failed to fetch match list'); return; }
+
+let teamMatches = (listData.matches || []).filter(m =>
+  m.homeTeam?.id === team.id || m.awayTeam?.id === team.id
+);
+
+// Also fetch FA Cup and League Cup
+for (const cup of ['FAC', 'EFL']) {
+  const cupData = await fetchWithRetry(
+    `https://api.football-data.org/v4/competitions/${cup}/matches?season=2025&status=FINISHED`,
     headers
   );
+  if (cupData) {
+    const cupMatches = (cupData.matches || []).filter(m =>
+      m.homeTeam?.id === team.id || m.awayTeam?.id === team.id
+    );
+    console.log(`Found ${cupMatches.length} ${cup} matches`);
+    teamMatches = [...teamMatches, ...cupMatches];
+  }
+}
+
+console.log(`Found ${teamMatches.length} total matches`);
 
   // Also fetch Champions League if PL team
   let clMatches = [];
