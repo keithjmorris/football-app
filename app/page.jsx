@@ -258,16 +258,16 @@ export default function FixturesPage() {
     try {
       const today = new Date().toISOString().split('T')[0];
       const url = selectedTeam === 'all'
-        ? `/api/matches?dateFrom=${today}&dateTo=${today}`
-        : `/api/matches?dateFrom=${today}&dateTo=${today}&teamId=${selectedTeam}`;
+  ? `/api/matches?dateFrom=${today}&dateTo=${today}&season=2026`
+  : `/api/matches?dateFrom=${today}&dateTo=${today}&teamId=${selectedTeam}&season=2026`;
 
-      const [todayRes, upcomingRes] = await Promise.all([
-        fetch(url),
-        fetch(selectedTeam === 'all'
-          ? '/api/matches'
-          : `/api/matches?teamId=${selectedTeam}`
-        ),
-      ]);
+const [todayRes, upcomingRes] = await Promise.all([
+  fetch(url),
+  fetch(selectedTeam === 'all'
+    ? '/api/matches?season=2026'
+    : `/api/matches?teamId=${selectedTeam}&season=2026`
+  ),
+]);
 
       const todayData = await todayRes.json();
       const upcomingData = await upcomingRes.json();
