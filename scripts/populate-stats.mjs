@@ -191,6 +191,9 @@ for (const cup of ['FAC', 'EFL']) {
 
 console.log(`Found ${teamMatches.length} total matches`);
 
+
+
+
   // Also fetch Champions League if PL team
   let clMatches = [];
   if (team.competition === 'PL') {
