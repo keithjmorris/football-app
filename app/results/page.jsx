@@ -57,8 +57,8 @@ export default function ResultsPage() {
     async function fetchResults() {
       try {
         const url = selectedTeam === 'all'
-          ? '/api/matches?status=FINISHED'
-          : `/api/matches?status=FINISHED&teamId=${selectedTeam}`;
+  ? '/api/matches?status=FINISHED&season=2025'
+  : `/api/matches?status=FINISHED&teamId=${selectedTeam}&season=2025`;
         const res = await fetch(url);
         if (!res.ok) throw new Error('Failed to fetch results');
         const data = await res.json();
@@ -97,6 +97,7 @@ export default function ResultsPage() {
 
       <TeamSelector
         selectedTeam={selectedTeam}
+        showAll={false}
         onChange={val => {
           setSelectedTeam(val);
           setLoading(true);

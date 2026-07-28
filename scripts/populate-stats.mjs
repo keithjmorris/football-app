@@ -211,16 +211,6 @@ console.log(`Found ${teamMatches.length} total matches`);
 
   if (!listData) { console.log('Failed to fetch match list'); return; }
 
-  const teamMatches = [
-    ...(listData.matches || []).filter(m =>
-      m.homeTeam?.id === team.id || m.awayTeam?.id === team.id
-    ),
-    ...clMatches,
-  ];
-
-  console.log(`Found ${teamMatches.length} matches total`);
-
-  console.log(`Found ${teamMatches.length} matches`);
 
   const playerStats = {};
   const teamMatchStats = [];
