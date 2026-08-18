@@ -94,13 +94,11 @@ function convertLineups(lineupData) {
     awayTeam: processTeam(lineupData.awayTeam || {}),
   };
 }
-
-console.log('Home team ID from match:', matchData.homeTeam?.id);
-console.log('Stats teams:', statsData?.map(t => t.team?.id));
-
 function convertStatistics(statsData, homeTeamId, awayTeamId) {
-  if (!statsData || !Array.isArray(statsData)) return { home: null, away: null };
-
+  if (!statsData) return { home: null, away: null };
+  
+  const arr = Array.isArray(statsData) ? statsData : statsData.data || [];
+  
   function extractStats(teamStats) {
     const s = {};
     for (const stat of teamStats?.statistics || []) {
@@ -120,12 +118,12 @@ function convertStatistics(statsData, homeTeamId, awayTeamId) {
     };
   }
 
-  const homeStats = statsData.find(t => t.team?.id === homeTeamId);
-  const awayStats = statsData.find(t => t.team?.id === awayTeamId);
+  const homeStats = arr.find(t => t.team?.id === homeTeamId);
+  const awayStats = arr.find(t => t.team?.id === awayTeamId);
 
   return {
-    home: extractStats(homeStats),
-    away: extractStats(awayStats),
+    home: homeStats ? extractStats(homeStats) : null,
+    away: awayStats ? extractStats(awayStats) : null,
   };
 }
 
