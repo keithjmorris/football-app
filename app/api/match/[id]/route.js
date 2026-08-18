@@ -147,8 +147,8 @@ export async function GET(request, { params }) {
     const base = convertMatch(matchData, compCode);
     const { goals, bookings, substitutions } = convertEvents(eventsData);
     const lineups = convertLineups(lineupData);
-    console.log('statsData type:', typeof statsData, 'isArray:', Array.isArray(statsData), 'length:', statsData?.length);
-const stats = convertStatistics(
+console.log('statsData:', JSON.stringify(statsData?.map(t => ({teamId: t.team?.id, statsCount: t.statistics?.length, firstStat: t.statistics?.[0]}))));
+console.log('homeTeamId:', matchData.homeTeam?.id, 'awayTeamId:', matchData.awayTeam?.id);const stats = convertStatistics(
   statsData,
   matchData.homeTeam?.id,
   matchData.awayTeam?.id
