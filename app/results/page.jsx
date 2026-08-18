@@ -55,14 +55,32 @@ export default function ResultsPage() {
 
   useEffect(() => {
     async function fetchResults() {
+      setError(null);
+      setMatches([]);
       try {
+        const teamIds = TEAMS.map(t => t.id);
         const url = selectedTeam === 'all'
-  ? '/api/matches?status=FINISHED&season=2025'
-  : `/api/matches?status=FINISHED&teamId=${selectedTeam}&season=2025`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error('Failed to fetch results');
-        const data = await res.json();
-        setMatches(data.matches || []);
+          ? `/api/matches?teamIds=${teamIds.join(',')}&status=FINISHED&season=2025`
+          : `/api/matches?teamId=${selectedTeam}&status=FINISHED&season=2025`;
+
+        const cupUrl = selectedTeam === 'all'
+          ? `/api/cups?teamIds=${teamIds.join(',')}&status=FINISHED`
+          : `/api/cups?teamIds=${selectedTeam}&status=FINISHED`;
+
+        const [leagueRes, cupRes] = await Promise.all([
+          fetch(url),
+          fetch(cupUrl),
+        ]);
+
+        const leagueData = await leagueRes.json();
+        const cupData = await cupRes.json();
+
+        const allMatches = [
+          ...(leagueData.matches || []),
+          ...(cupData.matches || []),
+        ].sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
+
+        setMatches(allMatches);
       } catch (err) {
         setError(err.message);
       } finally {
