@@ -109,12 +109,11 @@ function convertStatistics(statsData, boxScoreData, homeTeamId, awayTeamId) {
     // Aggregate passing and tackles from box score
     let totalPasses = 0, successfulPasses = 0, totalTackles = 0;
     for (const player of teamBoxScore?.players || []) {
-  const ps = player.statistics?.[0];
-  if (ps) {
-    totalPasses += ps.passesTotal || 0;
-    successfulPasses += ps.passesSuccessful || 0;
-    totalTackles += ps.tacklesTotal || 0;
-  }
+  const ps = player.statistics || {};
+  totalPasses += ps.passesTotal || 0;
+  successfulPasses += ps.passesSuccessful || 0;
+  totalTackles += ps.tacklesTotal || 0;
+}
 }
     const passAccuracy = totalPasses > 0
       ? Math.round((successfulPasses / totalPasses) * 100)

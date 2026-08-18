@@ -98,21 +98,18 @@ function processMatch(match, events, lineups, statistics, boxScore, teamHlId, te
   for (const teamData of Array.isArray(boxScore) ? boxScore : []) {
     if (teamData.team?.id !== teamHlId) continue;
     for (const bsPlayer of teamData.players || []) {
-      const ps = bsPlayer.statistics?.[0];
-      if (!ps) continue;
-      // Match by name since IDs might differ
-      const player = Object.values(players).find(p => p.name === bsPlayer.name);
-      if (player && player.matches.length > 0) {
-        const lastMatch = player.matches.at(-1);
-        lastMatch.xg = ps.expectedGoals || 0;
-        lastMatch.passes = ps.passesTotal || 0;
-        lastMatch.passAccuracy = ps.passesAccuracy ? parseFloat(ps.passesAccuracy) : 0;
-        lastMatch.tackles = ps.tacklesTotal || 0;
-        // Add to player totals
-        player.xg = (player.xg || 0) + (ps.expectedGoals || 0);
-        player.passes = (player.passes || 0) + (ps.passesTotal || 0);
-        player.tackles = (player.tackles || 0) + (ps.tacklesTotal || 0);
-      }
+      const ps = bsPlayer.statistics || {};
+const player = Object.values(players).find(p => p.name === bsPlayer.name);
+if (player && player.matches.length > 0) {
+  const lastMatch = player.matches.at(-1);
+  lastMatch.xg = ps.expectedGoals || 0;
+  lastMatch.passes = ps.passesTotal || 0;
+  lastMatch.passAccuracy = ps.passesAccuracy ? parseFloat(ps.passesAccuracy) : 0;
+  lastMatch.tackles = ps.tacklesTotal || 0;
+  player.xg = (player.xg || 0) + (ps.expectedGoals || 0);
+  player.passes = (player.passes || 0) + (ps.passesTotal || 0);
+  player.tackles = (player.tackles || 0) + (ps.tacklesTotal || 0);
+}
     }
   }
   }
@@ -209,12 +206,11 @@ function processMatch(match, events, lineups, statistics, boxScore, teamHlId, te
 
   let totalPasses = 0, successfulPasses = 0, totalTackles = 0, totalXg = 0;
   for (const player of teamBoxScore?.players || []) {
-    const ps = player.statistics?.[0];
-    if (ps) {
-      totalPasses += ps.passesTotal || 0;
-      successfulPasses += ps.passesSuccessful || 0;
-      totalTackles += ps.tacklesTotal || 0;
-      totalXg += ps.expectedGoals || 0;
+   const ps = player.statistics || {};
+totalPasses += ps.passesTotal || 0;
+successfulPasses += ps.passesSuccessful || 0;
+totalTackles += ps.tacklesTotal || 0;
+totalXg += ps.expectedGoals || 0;
     }
   }
   const passAccuracy = totalPasses > 0
