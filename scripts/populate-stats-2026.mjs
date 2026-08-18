@@ -40,7 +40,8 @@ async function fetchHL(path) {
   return res.json();
 }
 
-function processMatch(match, events, lineups, statistics, teamHlId, teamFdId) {  const isHome = match.homeTeam?.id === teamHlId;
+function processMatch(match, events, lineups, statistics, boxScore, teamHlId, teamFdId) {
+  const isHome = match.homeTeam?.id === teamHlId;
   const opponent = isHome ? match.awayTeam : match.homeTeam;
   const teamLineup = isHome ? lineups?.homeTeam : lineups?.awayTeam;
 
@@ -67,6 +68,10 @@ function processMatch(match, events, lineups, statistics, teamHlId, teamFdId) { 
     assists: 0,
     yellowCards: 0,
     redCards: 0,
+    xg: 0,
+    passes: 0,
+    passAccuracy: 0,
+    tackles: 0,
   };
 
   const players = {};
@@ -88,6 +93,28 @@ function processMatch(match, events, lineups, statistics, teamHlId, teamFdId) { 
       redCards: 0,
       matches: [{ ...baseMatchInfo, started: true, minutesPlayed: 90 }],
     };
+
+    // Add player box score stats
+  for (const teamData of Array.isArray(boxScore) ? boxScore : []) {
+    if (teamData.team?.id !== teamHlId) continue;
+    for (const bsPlayer of teamData.players || []) {
+      const ps = bsPlayer.statistics?.[0];
+      if (!ps) continue;
+      // Match by name since IDs might differ
+      const player = Object.values(players).find(p => p.name === bsPlayer.name);
+      if (player && player.matches.length > 0) {
+        const lastMatch = player.matches.at(-1);
+        lastMatch.xg = ps.expectedGoals || 0;
+        lastMatch.passes = ps.passesTotal || 0;
+        lastMatch.passAccuracy = ps.passesAccuracy ? parseFloat(ps.passesAccuracy) : 0;
+        lastMatch.tackles = ps.tacklesTotal || 0;
+        // Add to player totals
+        player.xg = (player.xg || 0) + (ps.expectedGoals || 0);
+        player.passes = (player.passes || 0) + (ps.passesTotal || 0);
+        player.tackles = (player.tackles || 0) + (ps.tacklesTotal || 0);
+      }
+    }
+  }
   }
 
   // Process bench
@@ -175,6 +202,25 @@ function processMatch(match, events, lineups, statistics, teamHlId, teamFdId) { 
     s[stat.displayName] = stat.value;
   }
 
+  // Extract box score aggregates for team
+  const teamBoxScore = Array.isArray(boxScore)
+    ? boxScore.find(t => t.team?.id === teamHlId)
+    : null;
+
+  let totalPasses = 0, successfulPasses = 0, totalTackles = 0, totalXg = 0;
+  for (const player of teamBoxScore?.players || []) {
+    const ps = player.statistics?.[0];
+    if (ps) {
+      totalPasses += ps.passesTotal || 0;
+      successfulPasses += ps.passesSuccessful || 0;
+      totalTackles += ps.tacklesTotal || 0;
+      totalXg += ps.expectedGoals || 0;
+    }
+  }
+  const passAccuracy = totalPasses > 0
+    ? Math.round((successfulPasses / totalPasses) * 100)
+    : 0;
+
   const teamStats = {
     competition: compCode,
     date: match.date,
@@ -193,6 +239,10 @@ function processMatch(match, events, lineups, statistics, teamHlId, teamFdId) { 
     fouls: s['Fouls'] || 0,
     yellowCards: s['Yellow cards'] || 0,
     redCards: s['Red cards'] || 0,
+    xg: totalXg,
+    totalPasses,
+    passAccuracy,
+    tackles: totalTackles,
   };
 
   return {
@@ -266,13 +316,14 @@ const allMatches = [
 
     await sleep(500); // Small delay to avoid rate limiting
 
-    const [events, lineups, statistics] = await Promise.all([
+    const [events, lineups, statistics, boxScore] = await Promise.all([
   fetchHL(`/events/${match.id}`),
   fetchHL(`/lineups/${match.id}`),
   fetchHL(`/statistics/${match.id}`),
+  fetchHL(`/box-score/${match.id}`),
 ]);
 
-const { players, teamStats } = processMatch(match, events, lineups, statistics, team.hlId, team.fdId);
+const { players, teamStats } = processMatch(match, events, lineups, statistics, boxScore, team.hlId, team.fdId);
 
     // Add match ID to teamStats for tracking
     teamStats.id = String(match.id);
