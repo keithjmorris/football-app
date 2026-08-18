@@ -104,16 +104,16 @@ function convertStatistics(statsData, homeTeamId, awayTeamId) {
       s[stat.displayName] = stat.value;
     }
     return {
-      ball_possession: s['Ball Possession'] || s['Possession'] || 0,
-      shots_on_goal: s['Shots on Target'] || s['Shots On Target'] || 0,
-      shots_off_goal: s['Shots off Target'] || s['Shots Off Target'] || 0,
-      shots: s['Total Shots'] || s['Shots Total'] || 0,
-      saves: s['Saves'] || s['Goalkeeper Saves'] || 0,
-      corner_kicks: s['Corner Kicks'] || s['Corners'] || 0,
+      ball_possession: s['Possession'] || 0,
+      shots_on_goal: s['Shots on target'] || 0,
+      shots_off_goal: s['Shots off target'] || 0,
+      shots: (s['Shots on target'] || 0) + (s['Shots off target'] || 0) + (s['Blocked shots'] || 0),
+      saves: s['Goalkeeper saves'] || 0,
+      corner_kicks: s['Corners'] || 0,
       fouls: s['Fouls'] || 0,
       offsides: s['Offsides'] || 0,
-      yellow_cards: s['Yellow Cards'] || 0,
-      red_cards: s['Red Cards'] || 0,
+      yellow_cards: s['Yellow cards'] || 0,
+      red_cards: s['Red cards'] || 0,
     };
   }
 
