@@ -95,16 +95,31 @@ function convertLineups(lineupData) {
   };
 }
 
-function convertStatistics(statsData, homeTeamId, awayTeamId) {
+function convertStatistics(statsData, boxScoreData, homeTeamId, awayTeamId) {
   if (!statsData) return { home: null, away: null };
-  
+
   const arr = Array.isArray(statsData) ? statsData : statsData.data || [];
-  
-  function extractStats(teamStats) {
+
+  function extractStats(teamStats, teamBoxScore) {
     const s = {};
     for (const stat of teamStats?.statistics || []) {
       s[stat.displayName] = stat.value;
     }
+
+    // Aggregate passing and tackles from box score
+    let totalPasses = 0, successfulPasses = 0, totalTackles = 0;
+    for (const player of teamBoxScore?.players || []) {
+      const ps = player.statistics?.[0];
+      if (ps) {
+        totalPasses += ps.passesTotal || 0;
+        successfulPasses += ps.passesSuccessful || 0;
+        totalTackles += ps.tacklesTotal || 0;
+      }
+    }
+    const passAccuracy = totalPasses > 0
+      ? Math.round((successfulPasses / totalPasses) * 100)
+      : 0;
+
     return {
       ball_possession: s['Possession'] || 0,
       shots_on_goal: s['Shots on target'] || 0,
@@ -116,15 +131,25 @@ function convertStatistics(statsData, homeTeamId, awayTeamId) {
       offsides: s['Offsides'] || 0,
       yellow_cards: s['Yellow cards'] || 0,
       red_cards: s['Red cards'] || 0,
+      xg: s['Expected Goals'] || 0,
+      total_passes: totalPasses,
+      pass_accuracy: passAccuracy,
+      tackles: totalTackles,
     };
   }
 
   const homeStats = arr.find(t => t.team?.id === homeTeamId);
   const awayStats = arr.find(t => t.team?.id === awayTeamId);
+  const homeBoxScore = Array.isArray(boxScoreData)
+    ? boxScoreData.find(t => t.team?.id === homeTeamId)
+    : null;
+  const awayBoxScore = Array.isArray(boxScoreData)
+    ? boxScoreData.find(t => t.team?.id === awayTeamId)
+    : null;
 
   return {
-    home: homeStats ? extractStats(homeStats) : null,
-    away: awayStats ? extractStats(awayStats) : null,
+    home: extractStats(homeStats, homeBoxScore),
+    away: extractStats(awayStats, awayBoxScore),
   };
 }
 
@@ -134,11 +159,12 @@ export async function GET(request, { params }) {
 
   try {
     // Fetch match, events, lineups and statistics in parallel
-    const [matchRaw, eventsData, lineupData, statsData] = await Promise.all([
+    const [matchRaw, eventsData, lineupData, statsData, boxScoreData] = await Promise.all([
   fetchHighlightly(`/matches/${id}`, apiKey, 30),
   fetchHighlightly(`/events/${id}`, apiKey, 30),
   fetchHighlightly(`/lineups/${id}`, apiKey, 30),
   fetchHighlightly(`/statistics/${id}`, apiKey, 30),
+  fetchHighlightly(`/box-score/${id}`, apiKey, 30),
 ]);
 
 if (!matchRaw) {
@@ -154,32 +180,39 @@ const { goals, bookings, substitutions } = convertEvents(eventsData);
 const lineups = convertLineups(lineupData);
 const stats = convertStatistics(
   statsData,
+  boxScoreData,
   matchData.homeTeam?.id,
   matchData.awayTeam?.id
 );
 
     // Merge everything together
     const fullMatch = {
-      ...base,
-      goals,
-      bookings,
-      substitutions,
-      homeTeam: {
-        ...base.homeTeam,
-        ...lineups.homeTeam,
-        statistics: stats.home,
-      },
-      awayTeam: {
-        ...base.awayTeam,
-        ...lineups.awayTeam,
-        statistics: stats.away,
-      },
-      venue: matchData.venue?.name || null,
-      attendance: null,
-      referees: matchData.referee?.name
-        ? [{ name: matchData.referee.name, type: 'REFEREE' }]
-        : [],
-    };
+  ...base,
+  goals,
+  bookings,
+  substitutions,
+  homeTeam: {
+    ...base.homeTeam,
+    ...lineups.homeTeam,
+    statistics: stats.home,
+    boxScore: Array.isArray(boxScoreData)
+      ? boxScoreData.find(t => t.team?.id === matchData.homeTeam?.id)?.players || []
+      : [],
+  },
+  awayTeam: {
+    ...base.awayTeam,
+    ...lineups.awayTeam,
+    statistics: stats.away,
+    boxScore: Array.isArray(boxScoreData)
+      ? boxScoreData.find(t => t.team?.id === matchData.awayTeam?.id)?.players || []
+      : [],
+  },
+  venue: matchData.venue?.name || null,
+  attendance: null,
+  referees: matchData.referee?.name
+    ? [{ name: matchData.referee.name, type: 'REFEREE' }]
+    : [],
+};
 
     return Response.json(fullMatch);
   } catch (err) {
