@@ -59,9 +59,10 @@ export default function ResultsPage() {
       setMatches([]);
       try {
         const teamIds = TEAMS.map(t => t.id);
-        const url = selectedTeam === 'all'
-          ? `/api/matches?teamIds=${teamIds.join(',')}&status=FINISHED&season=2025`
-          : `/api/matches?teamId=${selectedTeam}&status=FINISHED&season=2025`;
+        const currentSeason = new Date() >= new Date('2026-08-09') ? '2026' : '2025';
+const url = selectedTeam === 'all'
+  ? `/api/matches?teamIds=${teamIds.join(',')}&status=FINISHED&season=${currentSeason}`
+  : `/api/matches?teamId=${selectedTeam}&status=FINISHED&season=${currentSeason}`;
 
         const cupUrl = selectedTeam === 'all'
           ? `/api/cups?teamIds=${teamIds.join(',')}&status=FINISHED`
