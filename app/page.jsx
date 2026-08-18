@@ -268,15 +268,14 @@ export default function FixturesPage() {
         ? `teamIds=${teamIds.join(',')}`
         : `teamIds=${selectedTeam}`;
 
-      const [todayRes, upcomingRes, cupRes] = await Promise.all([
-        fetch(`/api/matches?${baseParams}&dateFrom=${today}&dateTo=${today}`),
-        fetch(`/api/matches?${baseParams}`),
-        fetch(`/api/cups?${cupParams}`),
-      ]);
+      const [todayRes, upcomingRes] = await Promise.all([
+  fetch(`/api/matches?${baseParams}&dateFrom=${today}&dateTo=${today}`),
+  fetch(`/api/matches?${baseParams}`),
+]);
 
       const todayData = await todayRes.json();
       const upcomingData = await upcomingRes.json();
-      const cupData = await cupRes.json();
+  
 
       const todayMatches = todayData.matches || [];
       const live = todayMatches.filter(m => LIVE_STATUSES.includes(m.status));
@@ -288,15 +287,9 @@ export default function FixturesPage() {
         !LIVE_STATUSES.includes(m.status)
       );
 
-      const cupUpcoming = (cupData.matches || []).filter(m =>
-        m.status !== 'FINISHED' &&
-        m.status !== 'AWARDED' &&
-        m.status !== 'CANCELLED' &&
-        !LIVE_STATUSES.includes(m.status)
-      );
 
-      const allUpcoming = [...leagueUpcoming, ...cupUpcoming]
-        .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
+      const allUpcoming = leagueUpcoming
+  .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
       setLiveMatches(live);
       setUpcomingMatches(allUpcoming);

@@ -2,9 +2,45 @@
 
 import { useEffect, useState } from 'react';
 import { TEAMS } from '@/lib/teams';
-import MatchCard from '@/components/MatchCard';
 import TeamSelector from '@/components/TeamSelector';
 import MatchDetails from '@/components/MatchDetails';
+
+function MatchCard({ match }) {
+  const trackedIds = new Set(TEAMS.map(t => t.id));
+  const homeTracked = trackedIds.has(match.homeTeam?.id);
+  const awayTracked = trackedIds.has(match.awayTeam?.id);
+
+  const homeScore = match.score?.fullTime?.home;
+  const awayScore = match.score?.fullTime?.away;
+
+  return (
+    <div className={`match-card ${homeTracked || awayTracked ? 'tracked' : ''}`}>
+      <div className="team-home">
+        {match.homeTeam?.crest && <img src={match.homeTeam.crest} alt="" className="team-crest" />}
+        <span className={`team-name ${homeTracked ? 'tracked-name' : ''}`}>
+          {match.homeTeam?.shortName || match.homeTeam?.name}
+        </span>
+      </div>
+      <div className="match-centre">
+        <div className="match-score">
+          {homeScore ?? '—'} : {awayScore ?? '—'}
+        </div>
+        <div className="match-time">
+          {new Date(match.utcDate).toLocaleDateString('en-GB', {
+            day: 'numeric', month: 'short'
+          })}
+        </div>
+        <div className="match-competition">{match.competition?.name}</div>
+      </div>
+      <div className="team-away">
+        {match.awayTeam?.crest && <img src={match.awayTeam.crest} alt="" className="team-crest" />}
+        <span className={`team-name ${awayTracked ? 'tracked-name' : ''}`}>
+          {match.awayTeam?.shortName || match.awayTeam?.name}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 function MatchSummary({ match }) {
   const [summary, setSummary] = useState(null);
@@ -59,29 +95,14 @@ export default function ResultsPage() {
       setMatches([]);
       try {
         const teamIds = TEAMS.map(t => t.id);
-        const currentSeason = new Date() >= new Date('2026-08-09') ? '2026' : '2025';
-const url = selectedTeam === 'all'
-  ? `/api/matches?teamIds=${teamIds.join(',')}&status=FINISHED&season=${currentSeason}`
-  : `/api/matches?teamId=${selectedTeam}&status=FINISHED&season=${currentSeason}`;
+        const url = selectedTeam === 'all'
+          ? `/api/matches?teamIds=${teamIds.join(',')}&status=FINISHED&season=2026`
+          : `/api/matches?teamId=${selectedTeam}&status=FINISHED&season=2026`;
 
-        const cupUrl = selectedTeam === 'all'
-          ? `/api/cups?teamIds=${teamIds.join(',')}&status=FINISHED`
-          : `/api/cups?teamIds=${selectedTeam}&status=FINISHED`;
-
-        const [leagueRes, cupRes] = await Promise.all([
-          fetch(url),
-          fetch(cupUrl),
-        ]);
-
-        const leagueData = await leagueRes.json();
-        const cupData = await cupRes.json();
-
-        const allMatches = [
-          ...(leagueData.matches || []),
-          ...(cupData.matches || []),
-        ].sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate));
-
-        setMatches(allMatches);
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('Failed to fetch results');
+        const data = await res.json();
+        setMatches(data.matches || []);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -128,7 +149,7 @@ const url = selectedTeam === 'all'
         {loading && <p className="state-msg">Loading results…</p>}
         {error && <p className="state-msg error">Could not load results: {error}</p>}
         {!loading && !error && matches.length === 0 && (
-          <p className="state-msg">No results yet — the season hasn't started!</p>
+          <p className="state-msg">No results yet.</p>
         )}
         {!loading && !error && Object.entries(grouped)
           .sort(([a], [b]) => b.localeCompare(a))
