@@ -146,7 +146,7 @@ function convertStatistics(statsData, boxScoreData, homeTeamId, awayTeamId) {
   const awayBoxScore = Array.isArray(boxScoreData)
     ? boxScoreData.find(t => t.team?.id === awayTeamId)
     : null;
-    console.log('homeBoxScore players:', homeBoxScore?.players?.length, 'first player stats:', JSON.stringify(homeBoxScore?.players?.[0]?.statistics?.[0]));
+console.log('first player full:', JSON.stringify(homeBoxScore?.players?.[0]));
 
   return {
     home: extractStats(homeStats, homeBoxScore),
