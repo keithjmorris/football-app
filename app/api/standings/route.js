@@ -1,43 +1,59 @@
+import { LEAGUE_IDS, TEAM_ID_MAP, fetchHighlightly } from '@/lib/highlightly';
 import { TEAMS } from '@/lib/teams';
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url);
   const competition = searchParams.get('competition') || 'PL';
+  const season = searchParams.get('season') || '2026';
+
+  const apiKey = process.env.HIGHLIGHTLY_API_KEY;
+  const leagueId = LEAGUE_IDS[competition];
+
+  if (!leagueId) {
+    return Response.json({ error: 'Unknown competition' }, { status: 400 });
+  }
 
   try {
-    const res = await fetch(
-      `https://api.football-data.org/v4/competitions/${competition}/standings`,
-      {
-        headers: { 'X-Auth-Token': process.env.FOOTBALL_DATA_API_KEY },
-        cache: 'no-store',
-      }
+    const data = await fetchHighlightly(
+      `/standings?leagueId=${leagueId}&season=${season}`,
+      apiKey,
+      300
     );
 
-    if (!res.ok) {
-      return Response.json(
-        { error: `football-data API error: ${res.status}` },
-        { status: res.status }
-      );
+    if (!data?.groups) {
+      return Response.json({ standings: [] });
     }
 
-    const data = await res.json();
-    const trackedIds = new Set(TEAMS.map(t => t.id));
+    // Build set of tracked Highlightly team IDs
+    const trackedHlIds = new Set(
+      TEAMS.map(t => TEAM_ID_MAP[t.id]).filter(Boolean)
+    );
 
-    // Add a flag to highlight our tracked teams
-    const standings = data.standings?.map(group => ({
+    // Convert to our format
+    const standings = data.groups.map(group => ({
       ...group,
-      table: group.table.map(row => ({
-        ...row,
-        tracked: trackedIds.has(row.team?.id),
+      table: group.standings.map(row => ({
+        position: row.position,
+        team: {
+          id: row.team.id,
+          name: row.team.name,
+          shortName: row.team.name,
+          crest: row.team.logo,
+        },
+        playedGames: row.total?.games || 0,
+        won: row.total?.wins || 0,
+        draw: row.total?.draws || 0,
+        lost: row.total?.loses || 0,
+        goalsFor: row.total?.scoredGoals || 0,
+        goalsAgainst: row.total?.receivedGoals || 0,
+        goalDifference: (row.total?.scoredGoals || 0) - (row.total?.receivedGoals || 0),
+        points: row.points || 0,
+        tracked: trackedHlIds.has(row.team.id),
       })),
     }));
 
-    return Response.json({
-      competition: data.competition,
-      season: data.season,
-      standings,
-    });
+    return Response.json({ standings });
   } catch (err) {
-    return Response.json({ error: 'Failed to fetch standings' }, { status: 500 });
+    return Response.json({ error: err.message }, { status: 500 });
   }
 }
