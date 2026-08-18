@@ -1,7 +1,6 @@
 import { TEAM_ID_MAP, LEAGUE_IDS, convertMatch, fetchHighlightly } from '@/lib/highlightly';
 import { TEAMS } from '@/lib/teams';
 
-// Get competition code from Highlightly league ID
 function getCompCode(leagueId) {
   return Object.entries(LEAGUE_IDS).find(([, id]) => id === leagueId)?.[0] || 'UNKNOWN';
 }
@@ -35,44 +34,34 @@ export async function GET(request) {
       return Response.json({ matches: [] });
     }
 
-    // Determine which leagues to fetch
-    const leaguesToFetch = [];
-    for (const fdId of fdIds) {
-      const team = TEAMS.find(t => t.id === fdId);
-      if (team?.competition === 'PL') {
-        if (!leaguesToFetch.includes(LEAGUE_IDS.PL)) leaguesToFetch.push(LEAGUE_IDS.PL);
-      } else if (team?.competition === 'ELC') {
-        if (!leaguesToFetch.includes(LEAGUE_IDS.ELC)) leaguesToFetch.push(LEAGUE_IDS.ELC);
-      }
-    }
-
-    // If no specific team, fetch all tracked leagues
-    if (leaguesToFetch.length === 0) {
-      leaguesToFetch.push(LEAGUE_IDS.PL, LEAGUE_IDS.ELC);
-    }
-
-    // Also include cups
-    leaguesToFetch.push(LEAGUE_IDS.FAC, LEAGUE_IDS.EFL);
-
-    // Fetch matches from each league
     const allMatches = [];
+    const seen = new Set();
 
-    for (const leagueId of leaguesToFetch) {
-      let path = `/matches?leagueId=${leagueId}&season=${season}&limit=100`;
-      if (dateFrom) path += `&dateFrom=${dateFrom}`;
-      if (dateTo) path += `&dateTo=${dateTo}`;
+    // Fetch home and away matches for each team
+    for (const hlId of hlIds) {
+      let homePath = `/matches?homeTeamId=${hlId}&season=${season}&limit=100`;
+      let awayPath = `/matches?awayTeamId=${hlId}&season=${season}&limit=100`;
 
-      const data = await fetchHighlightly(path, apiKey);
-      if (!data?.data) continue;
+      if (dateFrom) {
+        homePath += `&date=${dateFrom}`;
+        awayPath += `&date=${dateFrom}`;
+      }
 
-      const compCode = getCompCode(leagueId);
+      const [homeData, awayData] = await Promise.all([
+        fetchHighlightly(homePath, apiKey),
+        fetchHighlightly(awayPath, apiKey),
+      ]);
 
-      // Filter to our tracked teams
-      const filtered = data.data.filter(m =>
-        hlIds.includes(m.homeTeam?.id) || hlIds.includes(m.awayTeam?.id)
-      );
+      const matches = [
+        ...(homeData?.data || []),
+        ...(awayData?.data || []),
+      ];
 
-      for (const m of filtered) {
+      for (const m of matches) {
+        if (seen.has(m.id)) continue;
+        seen.add(m.id);
+
+        const compCode = getCompCode(m.league?.id);
         allMatches.push(convertMatch(m, compCode));
       }
     }
@@ -87,18 +76,14 @@ export async function GET(request) {
       );
     }
 
+    // Filter out preseason friendlies (before Aug 8 2026)
+    const seasonStart = new Date('2026-08-08');
+    matches = matches.filter(m => new Date(m.utcDate) >= seasonStart);
+
     // Sort by date
     matches.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
 
-    // Deduplicate
-    const seen = new Set();
-    const deduped = matches.filter(m => {
-      if (seen.has(m.id)) return false;
-      seen.add(m.id);
-      return true;
-    });
-
-    return Response.json({ matches: deduped });
+    return Response.json({ matches });
   } catch (err) {
     return Response.json({ error: err.message }, { status: 500 });
   }
