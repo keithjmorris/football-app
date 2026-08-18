@@ -106,15 +106,14 @@ function convertStatistics(statsData, boxScoreData, homeTeamId, awayTeamId) {
       s[stat.displayName] = stat.value;
     }
 
-    // Aggregate passing and tackles from box score
     let totalPasses = 0, successfulPasses = 0, totalTackles = 0;
     for (const player of teamBoxScore?.players || []) {
-  const ps = player.statistics || {};
-  totalPasses += ps.passesTotal || 0;
-  successfulPasses += ps.passesSuccessful || 0;
-  totalTackles += ps.tacklesTotal || 0;
-}
-}
+      const ps = player.statistics || {};
+      totalPasses += ps.passesTotal || 0;
+      successfulPasses += ps.passesSuccessful || 0;
+      totalTackles += ps.tacklesTotal || 0;
+    }
+
     const passAccuracy = totalPasses > 0
       ? Math.round((successfulPasses / totalPasses) * 100)
       : 0;
@@ -150,6 +149,7 @@ function convertStatistics(statsData, boxScoreData, homeTeamId, awayTeamId) {
     home: extractStats(homeStats, homeBoxScore),
     away: extractStats(awayStats, awayBoxScore),
   };
+}
 
 
 export async function GET(request, { params }) {
