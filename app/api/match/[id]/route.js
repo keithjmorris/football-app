@@ -147,11 +147,12 @@ export async function GET(request, { params }) {
     const base = convertMatch(matchData, compCode);
     const { goals, bookings, substitutions } = convertEvents(eventsData);
     const lineups = convertLineups(lineupData);
-    const stats = convertStatistics(
-      statsData,
-      matchData.homeTeam?.id,
-      matchData.awayTeam?.id
-    );
+    console.log('statsData type:', typeof statsData, 'isArray:', Array.isArray(statsData), 'length:', statsData?.length);
+const stats = convertStatistics(
+  statsData,
+  matchData.homeTeam?.id,
+  matchData.awayTeam?.id
+);
 
     // Merge everything together
     const fullMatch = {
