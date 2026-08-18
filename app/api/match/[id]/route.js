@@ -146,7 +146,6 @@ function convertStatistics(statsData, boxScoreData, homeTeamId, awayTeamId) {
   const awayBoxScore = Array.isArray(boxScoreData)
     ? boxScoreData.find(t => t.team?.id === awayTeamId)
     : null;
-console.log('first player full:', JSON.stringify(homeBoxScore?.players?.[0]));
 
   return {
     home: extractStats(homeStats, homeBoxScore),
@@ -179,7 +178,6 @@ const compCode = getCompCode(matchData.league?.id);
 const base = convertMatch(matchData, compCode);
 const { goals, bookings, substitutions } = convertEvents(eventsData);
 const lineups = convertLineups(lineupData);
-console.log('homeId:', matchData.homeTeam?.id, 'boxScoreTeams:', Array.isArray(boxScoreData) ? boxScoreData.map(t => t.team?.id) : 'not array');
 const stats = convertStatistics(
   statsData,
   boxScoreData,
