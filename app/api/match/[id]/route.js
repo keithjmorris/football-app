@@ -134,23 +134,24 @@ export async function GET(request, { params }) {
 
   try {
     // Fetch match, events, lineups and statistics in parallel
-    const [matchData, eventsData, lineupData, statsData] = await Promise.all([
-      fetchHighlightly(`/matches/${id}`, apiKey, 30),
-      fetchHighlightly(`/events/${id}`, apiKey, 30),
-      fetchHighlightly(`/lineups/${id}`, apiKey, 30),
-      fetchHighlightly(`/statistics/${id}`, apiKey, 30),
-    ]);
+    const [matchRaw, eventsData, lineupData, statsData] = await Promise.all([
+  fetchHighlightly(`/matches/${id}`, apiKey, 30),
+  fetchHighlightly(`/events/${id}`, apiKey, 30),
+  fetchHighlightly(`/lineups/${id}`, apiKey, 30),
+  fetchHighlightly(`/statistics/${id}`, apiKey, 30),
+]);
 
-    if (!matchData) {
-      return Response.json({ error: 'Match not found' }, { status: 404 });
-    }
+if (!matchRaw) {
+  return Response.json({ error: 'Match not found' }, { status: 404 });
+}
+
+// Match detail returns array with one item or direct object
+const matchData = Array.isArray(matchRaw) ? matchRaw[0] : (matchRaw.data?.[0] || matchRaw);
 
 const compCode = getCompCode(matchData.league?.id);
 const base = convertMatch(matchData, compCode);
 const { goals, bookings, substitutions } = convertEvents(eventsData);
 const lineups = convertLineups(lineupData);
-console.log('statsData:', JSON.stringify(statsData?.map(t => ({teamId: t.team?.id, statsCount: t.statistics?.length, firstStat: t.statistics?.[0]}))));
-console.log('homeTeamId:', matchData.homeTeam?.id, 'awayTeamId:', matchData.awayTeam?.id);
 const stats = convertStatistics(
   statsData,
   matchData.homeTeam?.id,
