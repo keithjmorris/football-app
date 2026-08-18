@@ -212,7 +212,7 @@ successfulPasses += ps.passesSuccessful || 0;
 totalTackles += ps.tacklesTotal || 0;
 totalXg += ps.expectedGoals || 0;
     }
-  }
+
   const passAccuracy = totalPasses > 0
     ? Math.round((successfulPasses / totalPasses) * 100)
     : 0;

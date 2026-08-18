@@ -72,11 +72,15 @@ function TeamSeasonStats({ stats, team }) {
           <span className="team-stat-label">Clean Sheets</span>
         </div>
       </div>
-      <div className="team-stats-divider">Performance Averages</div>
+            <div className="team-stats-divider">Performance Averages</div>
       <div className="team-stats-grid">
         <div className="team-stat-card">
           <span className="team-stat-value">{stats.avgPossession}%</span>
           <span className="team-stat-label">Possession</span>
+        </div>
+        <div className="team-stat-card">
+          <span className="team-stat-value">{stats.avgXg}</span>
+          <span className="team-stat-label">xG</span>
         </div>
         <div className="team-stat-card">
           <span className="team-stat-value">{stats.avgShotsOnGoal}</span>
@@ -85,6 +89,18 @@ function TeamSeasonStats({ stats, team }) {
         <div className="team-stat-card">
           <span className="team-stat-value">{stats.avgShots}</span>
           <span className="team-stat-label">Total Shots</span>
+        </div>
+        <div className="team-stat-card">
+          <span className="team-stat-value">{stats.avgPasses}</span>
+          <span className="team-stat-label">Passes</span>
+        </div>
+        <div className="team-stat-card">
+          <span className="team-stat-value">{stats.avgPassAccuracy}%</span>
+          <span className="team-stat-label">Pass Accuracy</span>
+        </div>
+        <div className="team-stat-card">
+          <span className="team-stat-value">{stats.avgTackles}</span>
+          <span className="team-stat-label">Tackles</span>
         </div>
         <div className="team-stat-card">
           <span className="team-stat-value">{stats.avgSaves}</span>
@@ -179,7 +195,6 @@ function PlayerRow({ player, isExpanded, onToggle }) {
     </>
   );
 }
-
 function aggregateTeamStats(teamMatchStats) {
   const count = teamMatchStats.length;
   if (count === 0) return null;
@@ -200,12 +215,17 @@ function aggregateTeamStats(teamMatchStats) {
     fouls: acc.fouls + m.fouls,
     yellowCards: acc.yellowCards + m.yellowCards,
     redCards: acc.redCards + m.redCards,
+    xg: acc.xg + (m.xg || 0),
+    totalPasses: acc.totalPasses + (m.totalPasses || 0),
+    passAccuracy: acc.passAccuracy + (m.passAccuracy || 0),
+    tackles: acc.tackles + (m.tackles || 0),
   }), {
     wins: 0, draws: 0, losses: 0,
     goalsFor: 0, goalsAgainst: 0, cleanSheets: 0,
     possession: 0, shotsOnGoal: 0, shotsOffGoal: 0,
     shots: 0, saves: 0, corners: 0, fouls: 0,
     yellowCards: 0, redCards: 0,
+    xg: 0, totalPasses: 0, passAccuracy: 0, tackles: 0,
   });
 
   const form = [...teamMatchStats]
@@ -226,11 +246,15 @@ function aggregateTeamStats(teamMatchStats) {
     points: totals.wins * 3 + totals.draws,
     pointsPerGame: ((totals.wins * 3 + totals.draws) / count).toFixed(2),
     avgPossession: Math.round(totals.possession / count),
+    avgXg: (totals.xg / count).toFixed(2),
     avgShotsOnGoal: (totals.shotsOnGoal / count).toFixed(1),
     avgShots: (totals.shots / count).toFixed(1),
     avgSaves: (totals.saves / count).toFixed(1),
     avgCorners: (totals.corners / count).toFixed(1),
     avgFouls: (totals.fouls / count).toFixed(1),
+    avgPasses: Math.round(totals.totalPasses / count),
+    avgPassAccuracy: Math.round(totals.passAccuracy / count),
+    avgTackles: Math.round(totals.tackles / count),
     totalYellowCards: totals.yellowCards,
     totalRedCards: totals.redCards,
     form,
