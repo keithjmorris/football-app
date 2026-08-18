@@ -121,7 +121,7 @@ function convertStatistics(statsData, boxScoreData, homeTeamId, awayTeamId) {
       : 0;
 
     return {
-      ball_possession: s['Possession'] || 0,
+      ball_possession: (() => { const p = s['Possession'] || 0; return p < 1 ? Math.round(p * 100) : p; })(),
       shots_on_goal: s['Shots on target'] || 0,
       shots_off_goal: s['Shots off target'] || 0,
       shots: (s['Shots on target'] || 0) + (s['Shots off target'] || 0) + (s['Blocked shots'] || 0),
@@ -178,6 +178,7 @@ const compCode = getCompCode(matchData.league?.id);
 const base = convertMatch(matchData, compCode);
 const { goals, bookings, substitutions } = convertEvents(eventsData);
 const lineups = convertLineups(lineupData);
+console.log('homeId:', matchData.homeTeam?.id, 'boxScoreTeams:', Array.isArray(boxScoreData) ? boxScoreData.map(t => t.team?.id) : 'not array');
 const stats = convertStatistics(
   statsData,
   boxScoreData,
