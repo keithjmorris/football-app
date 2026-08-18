@@ -150,12 +150,11 @@ function convertStatistics(statsData, boxScoreData, homeTeamId, awayTeamId) {
     home: extractStats(homeStats, homeBoxScore),
     away: extractStats(awayStats, awayBoxScore),
   };
-}
+
 
 export async function GET(request, { params }) {
   const { id } = await params;
   const apiKey = process.env.HIGHLIGHTLY_API_KEY;
-
   try {
     // Fetch match, events, lineups and statistics in parallel
     const [matchRaw, eventsData, lineupData, statsData, boxScoreData] = await Promise.all([
