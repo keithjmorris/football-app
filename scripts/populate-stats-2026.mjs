@@ -150,15 +150,15 @@ if (player && player.matches.length > 0) {
         if (last) last.minutesPlayed = minute;
       }
       if (inPlayer) {
-        inPlayer.subApps = 1;
-        inPlayer.minutesPlayed = 90 - minute;
-        inPlayer.matches = [{
-          ...baseMatchInfo,
-          started: false,
-          minutesPlayed: 90 - minute,
-          cameOnMinute: minute,
-        }];
-      }
+  inPlayer.subApps += 1;
+  inPlayer.minutesPlayed += 90 - minute;
+  inPlayer.matches.push({
+    ...baseMatchInfo,
+    started: false,
+    minutesPlayed: 90 - minute,
+    cameOnMinute: minute,
+  });
+}
     } else if (e.type === 'Goal' || e.type === 'Penalty') {
       const scorer = Object.values(players).find(p => p.name === e.player);
       if (scorer) {
@@ -226,7 +226,7 @@ totalXg += ps.expectedGoals || 0;
     goalsFor: teamScore || 0,
     goalsAgainst: oppScore || 0,
     cleanSheet: oppScore === 0,
-    possession: s['Possession'] || 0,
+possession: (() => { const p = s['Possession'] || 0; return p < 1 ? Math.round(p * 100) : p; })(),
     shotsOnGoal: s['Shots on target'] || 0,
     shotsOffGoal: s['Shots off target'] || 0,
     shots: (s['Shots on target'] || 0) + (s['Shots off target'] || 0) + (s['Blocked shots'] || 0),
@@ -344,11 +344,16 @@ const { players, teamStats } = processMatch(match, events, lineups, statistics, 
   }
 
   // Save to Firestore
-  await setDoc(docRef, {
-    playerStats,
-    teamMatchStats,
-    updatedAt: new Date().toISOString(),
-  });
+  try {
+    await setDoc(docRef, {
+      playerStats,
+      teamMatchStats,
+      updatedAt: new Date().toISOString(),
+    });
+    console.log(`✅ Firestore write successful for ${docKey}`);
+  } catch (firestoreErr) {
+    console.error(`❌ Firestore write failed:`, firestoreErr.message);
+  }
 
   console.log(`✅ Saved ${Object.keys(playerStats).length} players and ${teamMatchStats.length} total matches for ${team.name}`);
 }
