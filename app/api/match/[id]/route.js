@@ -95,6 +95,9 @@ function convertLineups(lineupData) {
   };
 }
 
+console.log('Home team ID from match:', matchData.homeTeam?.id);
+console.log('Stats teams:', statsData?.map(t => t.team?.id));
+
 function convertStatistics(statsData, homeTeamId, awayTeamId) {
   if (!statsData || !Array.isArray(statsData)) return { home: null, away: null };
 
