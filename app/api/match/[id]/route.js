@@ -94,6 +94,7 @@ function convertLineups(lineupData) {
     awayTeam: processTeam(lineupData.awayTeam || {}),
   };
 }
+
 function convertStatistics(statsData, homeTeamId, awayTeamId) {
   if (!statsData) return { home: null, away: null };
   
@@ -144,12 +145,13 @@ export async function GET(request, { params }) {
       return Response.json({ error: 'Match not found' }, { status: 404 });
     }
 
-    const compCode = getCompCode(matchData.league?.id);
-    const base = convertMatch(matchData, compCode);
-    const { goals, bookings, substitutions } = convertEvents(eventsData);
-    const lineups = convertLineups(lineupData);
+const compCode = getCompCode(matchData.league?.id);
+const base = convertMatch(matchData, compCode);
+const { goals, bookings, substitutions } = convertEvents(eventsData);
+const lineups = convertLineups(lineupData);
 console.log('statsData:', JSON.stringify(statsData?.map(t => ({teamId: t.team?.id, statsCount: t.statistics?.length, firstStat: t.statistics?.[0]}))));
-console.log('homeTeamId:', matchData.homeTeam?.id, 'awayTeamId:', matchData.awayTeam?.id);const stats = convertStatistics(
+console.log('homeTeamId:', matchData.homeTeam?.id, 'awayTeamId:', matchData.awayTeam?.id);
+const stats = convertStatistics(
   statsData,
   matchData.homeTeam?.id,
   matchData.awayTeam?.id
