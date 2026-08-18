@@ -255,10 +255,10 @@ export default function FixturesPage() {
   const intervalRef = useRef(null);
 
   async function fetchMatches() {
-    if (favourites.length === 0) return;
+    if (TEAMS.length === 0) return;
     try {
       const today = new Date().toISOString().split('T')[0];
-      const teamIds = favourites.map(t => t.id);
+      const teamIds = TEAMS.map(t => t.id);
 
       const baseParams = selectedTeam === 'all'
         ? `teamIds=${teamIds.join(',')}&season=2026`
@@ -281,7 +281,6 @@ export default function FixturesPage() {
       const todayMatches = todayData.matches || [];
       const live = todayMatches.filter(m => LIVE_STATUSES.includes(m.status));
 
-      // Merge league and cup upcoming matches
       const leagueUpcoming = (upcomingData.matches || []).filter(m =>
         m.status !== 'FINISHED' &&
         m.status !== 'AWARDED' &&
