@@ -12,15 +12,20 @@ export default function MatchStats({ homeTeam, awayTeam, homeColor, awayColor })
   const hColor = homeColor || '#1a1a2e';
   const aColor = awayColor || '#1a1a2e';
 
-  function StatRow({ label, home, away, isPercent }) {
+  function StatRow({ label, home, away, isPercent, isDecimal }) {
     if (home === null || home === undefined) return null;
     const total = home + away;
     const homePct = total === 0 ? 50 : Math.round((home / total) * 100);
     const awayPct = 100 - homePct;
 
+    const displayHome = isDecimal ? home.toFixed(2) : home;
+    const displayAway = isDecimal ? away.toFixed(2) : away;
+
     return (
       <div className="stat-row">
-        <span className="stat-value stat-value-home">{home}{isPercent ? '%' : ''}</span>
+        <span className="stat-value stat-value-home">
+          {displayHome}{isPercent ? '%' : ''}
+        </span>
         <div className="stat-bar-wrapper">
           <div className="stat-bar-label">{label}</div>
           <div className="stat-bar">
@@ -34,7 +39,9 @@ export default function MatchStats({ homeTeam, awayTeam, homeColor, awayColor })
             />
           </div>
         </div>
-        <span className="stat-value stat-value-away">{away}{isPercent ? '%' : ''}</span>
+        <span className="stat-value stat-value-away">
+          {displayAway}{isPercent ? '%' : ''}
+        </span>
       </div>
     );
   }
@@ -47,9 +54,13 @@ export default function MatchStats({ homeTeam, awayTeam, homeColor, awayColor })
         <span className="match-stats-team match-stats-team-away" style={{ color: aColor }}>{awayName}</span>
       </div>
       <StatRow label="Possession" home={hs.ball_possession} away={as.ball_possession} isPercent />
+      <StatRow label="xG" home={hs.xg} away={as.xg} isDecimal />
       <StatRow label="Shots on Target" home={hs.shots_on_goal} away={as.shots_on_goal} />
       <StatRow label="Shots off Target" home={hs.shots_off_goal} away={as.shots_off_goal} />
       <StatRow label="Saves" home={hs.saves} away={as.saves} />
+      <StatRow label="Pass Accuracy" home={hs.pass_accuracy} away={as.pass_accuracy} isPercent />
+      <StatRow label="Passes" home={hs.total_passes} away={as.total_passes} />
+      <StatRow label="Tackles" home={hs.tackles} away={as.tackles} />
       <StatRow label="Corners" home={hs.corner_kicks} away={as.corner_kicks} />
       <StatRow label="Fouls" home={hs.fouls} away={as.fouls} />
       <StatRow label="Offsides" home={hs.offsides} away={as.offsides} />
