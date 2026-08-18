@@ -40,8 +40,7 @@ async function fetchHL(path) {
   return res.json();
 }
 
-function processMatch(match, events, lineups, teamHlId, teamFdId) {
-  const isHome = match.homeTeam?.id === teamHlId;
+function processMatch(match, events, lineups, statistics, teamHlId, teamFdId) {  const isHome = match.homeTeam?.id === teamHlId;
   const opponent = isHome ? match.awayTeam : match.homeTeam;
   const teamLineup = isHome ? lineups?.homeTeam : lineups?.awayTeam;
 
@@ -168,7 +167,14 @@ function processMatch(match, events, lineups, teamHlId, teamFdId) {
     }
   }
 
-  // Team match stats
+  // Extract team statistics
+  const statsArr = Array.isArray(statistics) ? statistics : [];
+  const teamStatData = statsArr.find(t => t.team?.id === teamHlId);
+  const s = {};
+  for (const stat of teamStatData?.statistics || []) {
+    s[stat.displayName] = stat.value;
+  }
+
   const teamStats = {
     competition: compCode,
     date: match.date,
@@ -178,15 +184,15 @@ function processMatch(match, events, lineups, teamHlId, teamFdId) {
     goalsFor: teamScore || 0,
     goalsAgainst: oppScore || 0,
     cleanSheet: oppScore === 0,
-    possession: 0,
-    shotsOnGoal: 0,
-    shotsOffGoal: 0,
-    shots: 0,
-    saves: 0,
-    corners: 0,
-    fouls: 0,
-    yellowCards: 0,
-    redCards: 0,
+    possession: s['Possession'] || 0,
+    shotsOnGoal: s['Shots on target'] || 0,
+    shotsOffGoal: s['Shots off target'] || 0,
+    shots: (s['Shots on target'] || 0) + (s['Shots off target'] || 0) + (s['Blocked shots'] || 0),
+    saves: s['Goalkeeper saves'] || 0,
+    corners: s['Corners'] || 0,
+    fouls: s['Fouls'] || 0,
+    yellowCards: s['Yellow cards'] || 0,
+    redCards: s['Red cards'] || 0,
   };
 
   return {
@@ -260,12 +266,13 @@ const allMatches = [
 
     await sleep(500); // Small delay to avoid rate limiting
 
-    const [events, lineups] = await Promise.all([
-      fetchHL(`/events/${match.id}`),
-      fetchHL(`/lineups/${match.id}`),
-    ]);
+    const [events, lineups, statistics] = await Promise.all([
+  fetchHL(`/events/${match.id}`),
+  fetchHL(`/lineups/${match.id}`),
+  fetchHL(`/statistics/${match.id}`),
+]);
 
-    const { players, teamStats } = processMatch(match, events, lineups, team.hlId, team.fdId);
+const { players, teamStats } = processMatch(match, events, lineups, statistics, team.hlId, team.fdId);
 
     // Add match ID to teamStats for tracking
     teamStats.id = String(match.id);
