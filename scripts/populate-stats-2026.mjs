@@ -85,6 +85,8 @@ function processMatch(match, events, lineups, statistics, boxScore, teamHlId, te
 
   // Process starting lineup
   const startingXI = (teamLineup?.initialLineup || []).flat();
+console.log('Starting XI:', startingXI.map(p => p.name));
+console.log('Bench:', teamLineup?.substitutes?.map(p => p.name));
   for (const p of startingXI) {
     players[p.id] = {
       id: p.id, name: p.name, position: p.position, shirtNumber: p.number,
@@ -113,9 +115,11 @@ function processMatch(match, events, lineups, statistics, boxScore, teamHlId, te
     if (!e.team || e.team.id !== teamHlId) continue;
     const minute = parseInt(e.time) || 0;
 
-    if (e.type === 'Substitution') {
-      const outPlayer = findPlayer(e.substituted);
-      const inPlayer = findPlayer(e.player);
+    
+      if (e.type === 'Substitution') {
+  const outPlayer = findPlayer(e.player);      // e.player goes OFF
+  const inPlayer = findPlayer(e.substituted);  // e.substituted comes ON
+     
 
       if (outPlayer) {
         outPlayer.minutesPlayed = minute;

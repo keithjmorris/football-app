@@ -154,40 +154,48 @@ function PlayerRow({ player, isExpanded, onToggle }) {
           <td colSpan="10">
             <div className="player-matches">
               <table className="player-match-table">
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Opponent</th>
-                    <th>H/A</th>
-                    <th>Score</th>
-                    <th>Comp</th>
-                    <th>Mins</th>
-                    <th>Role</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {player.matches
-                    .sort((a, b) => new Date(a.date) - new Date(b.date))
-                    .map((m, i) => (
-                      <tr key={i}>
-                        <td>{(() => {
-                          try {
-                            const cleaned = String(m.date).replace(/(\d+)(st|nd|rd|th)/i, '$1').trim();
-                            const withYear = cleaned.includes('2025') || cleaned.includes('2026') ? cleaned : cleaned + ' 2025';
-                            const d = new Date(withYear);
-                            return isNaN(d.getTime()) ? m.date : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                          } catch { return m.date; }
-                        })()}</td>
-                        <td>{m.opponent}</td>
-                        <td>{m.homeAway}</td>
-                        <td>{m.score}</td>
-                        <td>{m.competition}</td>
-                        <td>{Math.round(m.minutesPlayed)}'</td>
-                        <td>{m.started ? 'Start' : `Sub ${m.cameOnMinute}'`}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+  <thead>
+    <tr>
+      <th>Date</th>
+      <th>Opponent</th>
+      <th>H/A</th>
+      <th>Score</th>
+      <th>Comp</th>
+      <th>Mins</th>
+      <th>Role</th>
+      <th>xG</th>
+      <th>Passes</th>
+      <th>Pass%</th>
+      <th>Tackles</th>
+    </tr>
+  </thead>
+  <tbody>
+    {player.matches
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .map((m, i) => (
+        <tr key={i}>
+          <td>{(() => {
+            try {
+              const cleaned = String(m.date).replace(/(\d+)(st|nd|rd|th)/i, '$1').trim();
+              const withYear = cleaned.includes('2025') || cleaned.includes('2026') ? cleaned : cleaned + ' 2025';
+              const d = new Date(withYear);
+              return isNaN(d.getTime()) ? m.date : d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+            } catch { return m.date; }
+          })()}</td>
+          <td>{m.opponent}</td>
+          <td>{m.homeAway}</td>
+          <td>{m.score}</td>
+          <td>{m.competition}</td>
+          <td>{Math.round(m.minutesPlayed)}'</td>
+          <td>{m.started ? 'Start' : `Sub ${m.cameOnMinute}'`}</td>
+          <td>{m.xg ? m.xg.toFixed(2) : '—'}</td>
+          <td>{m.passes || '—'}</td>
+          <td>{m.passAccuracy ? `${Math.round(m.passAccuracy)}%` : '—'}</td>
+          <td>{m.tackles || '—'}</td>
+        </tr>
+      ))}
+  </tbody>
+</table>
             </div>
           </td>
         </tr>
