@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { TEAMS } from '@/lib/teams';
 import TeamSelector from '@/components/TeamSelector';
 import MatchDetails from '@/components/MatchDetails';
+import MatchHighlights from '@/components/MatchHighlights';
 
 function MatchCard({ match }) {
   const trackedIds = new Set(TEAMS.map(t => t.id));
