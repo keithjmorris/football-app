@@ -167,6 +167,7 @@ export default function ResultsPage() {
                     <MatchCard match={match} />
                     <MatchSummary match={match} />
                     <MatchDetails match={match} />
+                    <MatchHighlights match={match} />
                   </div>
                 ))}
               </div>
