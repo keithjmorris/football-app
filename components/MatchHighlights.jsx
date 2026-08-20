@@ -46,28 +46,18 @@ export default function MatchHighlights({ match }) {
             <p className="summary-loading">No highlights available yet.</p>
           )}
           {!loading && highlights?.map(h => (
-            
-              key={h.id}
-              href={h.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="highlight-card"
-            >
-              {h.imgUrl && (
-                <img
-                  src={h.imgUrl}
-                  alt={h.title}
-                  className="highlight-thumb"
-                />
-              )}
-              <div className="highlight-info">
-                <span className="highlight-category">
-                  {CATEGORY_LABELS[h.category] || '📺 Video'}
-                </span>
-                <span className="highlight-title">{h.title}</span>
-              </div>
-            </a>
-          ))}
+  <a key={h.id} href={h.url} target="_blank" rel="noopener noreferrer" className="highlight-card">
+    {h.imgUrl && (
+      <img src={h.imgUrl} alt={h.title} className="highlight-thumb" />
+    )}
+    <div className="highlight-info">
+      <span className="highlight-category">
+        {CATEGORY_LABELS[h.category] || '📺 Video'}
+      </span>
+      <span className="highlight-title">{h.title}</span>
+    </div>
+  </a>
+))}
         </div>
       )}
     </div>
