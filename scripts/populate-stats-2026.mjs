@@ -69,19 +69,28 @@ function processMatch(match, events, lineups, statistics, boxScore, teamHlId, te
 
   const players = {};
 
-  function findPlayer(name) {
-    if (!name) return null;
-    return Object.values(players).find(p => {
-      if (p.name === name) return true;
-      const parts = name.split(' ');
-      if (parts.length >= 2 && parts[0].endsWith('.')) {
-        const initial = parts[0][0].toUpperCase();
-        const lastName = parts.slice(1).join(' ').toLowerCase();
-        return p.name.startsWith(initial) && p.name.toLowerCase().includes(lastName);
-      }
-      return false;
-    });
-  }
+  function findPlayer(players, name) {
+  if (!name) return null;
+  
+  // Normalise special characters for comparison
+  const normalise = str => str.normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+  
+  const normName = normalise(name);
+  
+  return Object.values(players).find(p => {
+    if (normalise(p.name) === normName) return true;
+    const parts = name.split(' ');
+    if (parts.length >= 2 && parts[0].endsWith('.')) {
+      const initial = parts[0][0].toUpperCase();
+      const lastName = normalise(parts.slice(1).join(' '));
+      return p.name.toUpperCase().startsWith(initial) && 
+             normalise(p.name).includes(lastName);
+    }
+    return false;
+  });
+}
 
   // Process starting lineup
   const startingXI = (teamLineup?.initialLineup || []).flat();
