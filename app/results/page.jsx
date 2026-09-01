@@ -43,47 +43,6 @@ function MatchCard({ match }) {
   );
 }
 
-function MatchSummary({ match }) {
-  const [summary, setSummary] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [open, setOpen] = useState(false);
-
-  async function fetchSummary() {
-    if (summary) { setOpen(!open); return; }
-    setOpen(true);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/summary', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(match),
-      });
-      const data = await res.json();
-      setSummary(data.summary);
-    } catch {
-      setSummary('Could not generate summary.');
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  return (
-    <div className="match-summary-wrapper">
-      <button className="summary-btn" onClick={fetchSummary}>
-        {open ? '▲ Hide report' : '▼ Match report'}
-      </button>
-      {open && (
-        <div className="summary-box">
-          {loading
-            ? <p className="summary-loading">Generating report…</p>
-            : <p className="summary-text">{summary}</p>
-          }
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function ResultsPage() {
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
