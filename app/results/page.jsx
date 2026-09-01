@@ -165,7 +165,6 @@ export default function ResultsPage() {
                 {dayMatches.map(match => (
                   <div key={match.id} className="match-block">
                     <MatchCard match={match} />
-                    <MatchSummary match={match} />
                     <MatchDetails match={match} />
                     <MatchHighlights match={match} />
                   </div>
