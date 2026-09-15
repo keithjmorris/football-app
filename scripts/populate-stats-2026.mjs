@@ -68,124 +68,113 @@ function processMatch(match, events, lineups, statistics, boxScore, teamHlId, te
   };
 
   const players = {};
-
-  function findPlayer(players, name) {
+function findPlayer(players, name) {
   if (!name) return null;
+  const simplify = str => str
+    .replace(/[ØøÒÓÔÕÖ]/g, 'o')
+    .replace(/[ÀÁÂÃÄÅàáâãäå]/g, 'a')
+    .replace(/[ÈÉÊËèéêë]/g, 'e')
+    .replace(/[ÌÍÎÏìíîï]/g, 'i')
+    .replace(/[ÙÚÛÜùúûü]/g, 'u')
+    .replace(/[ÝýÿŸ]/g, 'y')
+    .replace(/[Ññ]/g, 'n')
+    .replace(/[Çç]/g, 'c')
+    .replace(/-/g, ' ')
+    .toLowerCase();
+
   return Object.values(players).find(p => {
     if (p.name === name) return true;
+    if (simplify(p.name) === simplify(name)) return true;
     const parts = name.split(' ');
     if (parts.length >= 2 && parts[0].endsWith('.')) {
       const initial = parts[0][0].toUpperCase();
-      const lastName = parts.slice(1).join(' ').toLowerCase();
-      return p.name.startsWith(initial) && p.name.toLowerCase().includes(lastName);
+      const lastName = simplify(parts.slice(1).join(' '));
+      return p.name.startsWith(initial) && simplify(p.name).includes(lastName);
+    }
+    const pParts = p.name.split(' ');
+    if (pParts.length >= 2 && pParts[0].endsWith('.')) {
+      const initial = pParts[0][0].toUpperCase();
+      const lastName = simplify(pParts.slice(1).join(' '));
+      return name.toUpperCase().startsWith(initial) && simplify(name).includes(lastName);
+    }
+    const nameParts = simplify(name).split(' ');
+    const playerParts = simplify(p.name).split(' ');
+    if (nameParts.length > 2) {
+      if (nameParts[0] === playerParts[0] && nameParts[nameParts.length-1] === playerParts[playerParts.length-1]) {
+        return true;
+      }
+    }
+    const namePartsS = simplify(name).split(' ');
+    const pPartsS = simplify(p.name).split(' ');
+    if (namePartsS[0] === pPartsS[0] &&
+        pPartsS.slice(1).join(' ').startsWith(namePartsS.slice(1).join(' '))) {
+      return true;
     }
     return false;
   });
 }
 
-  // Process starting lineup
-  const startingXI = (teamLineup?.initialLineup || []).flat();
-console.log('Starting XI:', startingXI.map(p => p.name));
-console.log('Bench:', teamLineup?.substitutes?.map(p => p.name));
-  for (const p of startingXI) {
+const startingXI = (teamLineup?.initialLineup || []).flat();
+for (const p of startingXI) {
+  players[p.id] = {
+    id: p.id, name: p.name, position: p.position, shirtNumber: p.number,
+    starts: 1, subApps: 0, minutesPlayed: 90,
+    goals: 0, assists: 0, yellowCards: 0, redCards: 0,
+    xg: 0, passes: 0, tackles: 0,
+    matches: [{ ...baseMatchInfo, started: true, minutesPlayed: 90 }],
+  };
+}
+
+const starterNames = new Set(startingXI.map(p => p.name));
+
+for (const p of teamLineup?.substitutes || []) {
+  if (!players[p.id]) {
     players[p.id] = {
       id: p.id, name: p.name, position: p.position, shirtNumber: p.number,
-      starts: 1, subApps: 0, minutesPlayed: 90,
+      starts: 0, subApps: 0, minutesPlayed: 0,
       goals: 0, assists: 0, yellowCards: 0, redCards: 0,
-      xg: 0, passes: 0, tackles: 0,
-      matches: [{ ...baseMatchInfo, started: true, minutesPlayed: 90 }],
+      xg: 0, passes: 0, tackles: 0, matches: [],
     };
   }
+}
 
-  // Process bench
-  for (const p of teamLineup?.substitutes || []) {
-    if (!players[p.id]) {
-      players[p.id] = {
-        id: p.id, name: p.name, position: p.position, shirtNumber: p.number,
-        starts: 0, subApps: 0, minutesPlayed: 0,
+// Add box score players missing from lineup
+for (const teamData of Array.isArray(boxScore) ? boxScore : []) {
+  if (teamData.team?.id !== teamHlId) continue;
+  for (const bsPlayer of teamData.players || []) {
+    const existing = findPlayer(players, bsPlayer.name);
+    if (!existing) {
+      players[bsPlayer.id] = {
+        id: bsPlayer.id,
+        name: bsPlayer.name,
+        position: bsPlayer.position || '',
+        shirtNumber: bsPlayer.shirtNumber || null,
+        starts: bsPlayer.isSubstitute ? 0 : 1,
+        subApps: bsPlayer.isSubstitute ? 1 : 0,
+        minutesPlayed: bsPlayer.minutesPlayed || 0,
         goals: 0, assists: 0, yellowCards: 0, redCards: 0,
         xg: 0, passes: 0, tackles: 0,
-        matches: [],
-      };
-    }
-  }
-
-  // Process events
-  for (const e of events || []) {
-    if (!e.team || e.team.id !== teamHlId) continue;
-    const minute = parseInt(e.time) || 0;
-
-    
-      if (e.type === 'Substitution') {
-  const outPlayer = findPlayer(e.player);      // e.player goes OFF
-  const inPlayer = findPlayer(e.substituted);  // e.substituted comes ON
-     
-
-      if (outPlayer) {
-        outPlayer.minutesPlayed = minute;
-        const last = outPlayer.matches.at(-1);
-        if (last) last.minutesPlayed = minute;
-      }
-      if (inPlayer) {
-        inPlayer.subApps += 1;
-        inPlayer.minutesPlayed += 90 - minute;
-        inPlayer.matches.push({
+        matches: [{
           ...baseMatchInfo,
-          started: false,
-          minutesPlayed: 90 - minute,
-          cameOnMinute: minute,
-        });
+          started: !bsPlayer.isSubstitute,
+          minutesPlayed: bsPlayer.minutesPlayed || 0,
+        }],
+      };
+    } else if (!existing.matches.find(m => m.id === match.id)) {
+      if (bsPlayer.isSubstitute) {
+        existing.subApps += 1;
+      } else {
+        existing.starts += 1;
       }
-    } else if (e.type === 'Goal' || e.type === 'Penalty') {
-      const scorer = findPlayer(e.player);
-      if (scorer) {
-        scorer.goals += 1;
-        const last = scorer.matches.at(-1);
-        if (last) last.goals = (last.goals || 0) + 1;
-      }
-      if (e.assist) {
-        const assister = findPlayer(e.assist);
-        if (assister) {
-          assister.assists += 1;
-          const last = assister.matches.at(-1);
-          if (last) last.assists = (last.assists || 0) + 1;
-        }
-      }
-    } else if (e.type === 'Yellow Card') {
-      const player = findPlayer(e.player);
-      if (player) {
-        player.yellowCards += 1;
-        const last = player.matches.at(-1);
-        if (last) last.yellowCards = (last.yellowCards || 0) + 1;
-      }
-    } else if (e.type === 'Red Card' || e.type === 'Yellow Card/Red Card') {
-      const player = findPlayer(e.player);
-      if (player) {
-        player.redCards += 1;
-        const last = player.matches.at(-1);
-        if (last) last.redCards = (last.redCards || 0) + 1;
-      }
+      existing.minutesPlayed += bsPlayer.minutesPlayed || 0;
+      existing.matches.push({
+        ...baseMatchInfo,
+        started: !bsPlayer.isSubstitute,
+        minutesPlayed: bsPlayer.minutesPlayed || 0,
+      });
     }
   }
-
-  // Add player box score stats
-  for (const teamData of Array.isArray(boxScore) ? boxScore : []) {
-    if (teamData.team?.id !== teamHlId) continue;
-    for (const bsPlayer of teamData.players || []) {
-      const ps = bsPlayer.statistics || {};
-      const player = findPlayer(bsPlayer.name);
-      if (player && player.matches.length > 0) {
-        const lastMatch = player.matches.at(-1);
-        lastMatch.xg = ps.expectedGoals || 0;
-        lastMatch.passes = ps.passesTotal || 0;
-        lastMatch.passAccuracy = ps.passesAccuracy ? parseFloat(ps.passesAccuracy) : 0;
-        lastMatch.tackles = ps.tacklesTotal || 0;
-        player.xg = (player.xg || 0) + (ps.expectedGoals || 0);
-        player.passes = (player.passes || 0) + (ps.passesTotal || 0);
-        player.tackles = (player.tackles || 0) + (ps.tacklesTotal || 0);
-      }
-    }
-  }
+}
 
   // Extract team statistics
   const statsArr = Array.isArray(statistics) ? statistics : [];
@@ -212,6 +201,85 @@ console.log('Bench:', teamLineup?.substitutes?.map(p => p.name));
   const passAccuracy = totalPasses > 0
     ? Math.round((successfulPasses / totalPasses) * 100)
     : 0;
+
+    // Process events
+for (const e of events || []) {
+  if (!e.team || e.team.id !== teamHlId) continue;
+
+  if (e.type === 'Substitution') {
+    const playerA = findPlayer(players, e.player);
+    const playerB = findPlayer(players, e.substituted);
+    const playerAIsStarter = playerA && starterNames.has(playerA.name);
+    const playerBIsStarter = playerB && starterNames.has(playerB.name);
+    const outPlayer = playerAIsStarter ? playerA : playerBIsStarter ? playerB : null;
+    const inPlayer = outPlayer === playerA ? playerB : playerA;
+    if (outPlayer) {
+      outPlayer.minutesPlayed = parseInt(e.time) || 90;
+      const last = outPlayer.matches.at(-1);
+      if (last) last.minutesPlayed = parseInt(e.time) || 90;
+    }
+    if (inPlayer && inPlayer !== outPlayer) {
+      inPlayer.subApps += 1;
+      inPlayer.minutesPlayed += 90 - (parseInt(e.time) || 90);
+      inPlayer.matches.push({
+        ...baseMatchInfo,
+        started: false,
+        minutesPlayed: 90 - (parseInt(e.time) || 90),
+        cameOnMinute: parseInt(e.time) || 90,
+      });
+    }
+  } else if (e.type === 'Goal' || e.type === 'Penalty') {
+    const scorer = findPlayer(players, e.player);
+    if (scorer) {
+      scorer.goals += 1;
+      const last = scorer.matches.at(-1);
+      if (last) last.goals = (last.goals || 0) + 1;
+    }
+    if (e.assist) {
+      const assister = findPlayer(players, e.assist);
+      if (assister) {
+        assister.assists += 1;
+        const last = assister.matches.at(-1);
+        if (last) last.assists = (last.assists || 0) + 1;
+      }
+    }
+  } else if (e.type === 'Yellow Card') {
+    const player = findPlayer(players, e.player);
+    if (player) {
+      player.yellowCards += 1;
+      const last = player.matches.at(-1);
+      if (last) last.yellowCards = (last.yellowCards || 0) + 1;
+    }
+  } else if (e.type === 'Red Card' || e.type === 'Yellow Card/Red Card') {
+    const player = findPlayer(players, e.player);
+    if (player) {
+      player.redCards += 1;
+      const last = player.matches.at(-1);
+      if (last) last.redCards = (last.redCards || 0) + 1;
+    }
+  }
+}
+
+// Add player box score stats
+for (const teamData of Array.isArray(boxScore) ? boxScore : []) {
+  if (teamData.team?.id !== teamHlId) continue;
+  for (const bsPlayer of teamData.players || []) {
+    const ps = bsPlayer.statistics || {};
+    const player = findPlayer(players, bsPlayer.name);
+    if (player && player.matches.length > 0) {
+      const lastMatch = player.matches.at(-1);
+      lastMatch.xg = ps.expectedGoals || 0;
+      lastMatch.passes = ps.passesTotal || 0;
+      lastMatch.passAccuracy = ps.passesAccuracy ? parseFloat(ps.passesAccuracy) : 0;
+      lastMatch.tackles = ps.tacklesTotal || 0;
+      player.xg = (player.xg || 0) + (ps.expectedGoals || 0);
+      player.passes = (player.passes || 0) + (ps.passesTotal || 0);
+      player.tackles = (player.tackles || 0) + (ps.tacklesTotal || 0);
+    }
+  }
+}
+
+// Extract team statistics
 
   const teamStats = {
     competition: compCode,
