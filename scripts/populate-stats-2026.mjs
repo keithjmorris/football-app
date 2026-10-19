@@ -10,7 +10,14 @@ const firebaseConfig = {
   appId: "1:512352975737:web:7cd68dad3b3e9aec54cda8",
 };
 
-const HIGHLIGHTLY_KEY = '38fc70e4-38e9-42af-96cc-f1566cdf2c1e';
+// Key and address come from your local .env file (never commit the key):
+//   node --env-file=.env scripts/populate-stats-2026.mjs
+const HIGHLIGHTLY_KEY = process.env.HIGHLIGHTLY_API_KEY;
+const HIGHLIGHTLY_BASE = (process.env.HIGHLIGHTLY_FOOTBALL_BASE || 'https://soccer.highlightly.net').replace(/\/+$/, '');
+if (!HIGHLIGHTLY_KEY) {
+  console.error('HIGHLIGHTLY_API_KEY is not set. Run with: node --env-file=.env scripts/populate-stats-2026.mjs');
+  process.exit(1);
+}
 const SEASON = 2026;
 const SEASON_START = '2026-08-08'; // Filter out preseason
 
@@ -73,7 +80,7 @@ async function sleep(ms) {
 }
 
 async function fetchHL(path) {
-  const res = await fetch(`https://soccer.highlightly.net${path}`, {
+  const res = await fetch(`${HIGHLIGHTLY_BASE}${path}`, {
     headers: { 'x-rapidapi-key': HIGHLIGHTLY_KEY },
   });
   if (!res.ok) {
