@@ -72,6 +72,65 @@ const TEAMS = [
   { fdId: 73,   hlId: 40781,   name: 'Tottenham',         competition: 'PL' },
 ];
 
+// --dry-run: report what is stored versus what is unique, change nothing, fetch nothing new.
+const DRY_RUN = process.argv.includes('--dry-run');
+
+// One match = one date + one opponent, whichever way its id was stored.
+const matchKey = m => `${String(m.date || '').slice(0, 10)}|${m.opponent || ''}`;
+
+// Removes duplicate matches and recomputes every player total from their own
+// per-match entries, so earlier double-counting is repaired rather than carried forward.
+function normalise(playerStats, teamMatchStats) {
+  const teamByKey = new Map();
+  for (const m of teamMatchStats) teamByKey.set(matchKey(m), m); // last copy wins
+  const cleanTeam = [...teamByKey.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const validKeys = new Set(cleanTeam.map(matchKey));
+
+  let changedPlayers = 0;
+  const cleanPlayers = {};
+  for (const [id, p] of Object.entries(playerStats)) {
+    const byKey = new Map();
+    for (const m of p.matches || []) {
+      const k = matchKey(m);
+      if (!validKeys.has(k)) continue;
+      const prev = byKey.get(k);
+      if (!prev) { byKey.set(k, { ...m }); continue; }
+      // Same match recorded twice: merge into one entry. Take the larger figure, never the sum:
+      // a repeated run copies the goal into both entries, while a substitute's second entry
+      // holds it in only one.
+      byKey.set(k, {
+        ...prev, ...m,
+        started: !!(prev.started || m.started),
+        minutesPlayed: Math.max(prev.minutesPlayed || 0, m.minutesPlayed || 0),
+        goals: Math.max(prev.goals || 0, m.goals || 0),
+        assists: Math.max(prev.assists || 0, m.assists || 0),
+        yellowCards: Math.max(prev.yellowCards || 0, m.yellowCards || 0),
+        redCards: Math.max(prev.redCards || 0, m.redCards || 0),
+        xg: Math.max(prev.xg || 0, m.xg || 0),
+        passes: Math.max(prev.passes || 0, m.passes || 0),
+        tackles: Math.max(prev.tackles || 0, m.tackles || 0),
+      });
+    }
+    const matches = [...byKey.values()].sort((a, b) => new Date(a.date) - new Date(b.date));
+    if (!matches.length) continue;
+    const sum = f => matches.reduce((t, m) => t + (Number(m[f]) || 0), 0);
+    const rebuilt = {
+      ...p,
+      matches,
+      starts: matches.filter(m => m.started).length,
+      subApps: matches.filter(m => !m.started).length,
+      minutesPlayed: sum('minutesPlayed'),
+      goals: sum('goals'), assists: sum('assists'),
+      yellowCards: sum('yellowCards'), redCards: sum('redCards'),
+      xg: sum('xg'), passes: sum('passes'), tackles: sum('tackles'),
+    };
+    if (rebuilt.starts !== p.starts || rebuilt.subApps !== p.subApps || rebuilt.goals !== p.goals ||
+        matches.length !== (p.matches || []).length) changedPlayers++;
+    cleanPlayers[id] = rebuilt;
+  }
+  return { teamMatchStats: cleanTeam, changedPlayers, doc: { playerStats: cleanPlayers, teamMatchStats: cleanTeam } };
+}
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
@@ -249,7 +308,11 @@ for (const teamData of Array.isArray(boxScore) ? boxScore : []) {
     const last = outPlayer.matches.at(-1);
     if (last) last.minutesPlayed = parseInt(e.time) || 90;
   }
-  if (inPlayer && inPlayer !== outPlayer) {
+  const alreadyHasMatch = inPlayer && inPlayer.matches.some(m => String(m.id) === String(match.id));
+  if (inPlayer && inPlayer !== outPlayer && alreadyHasMatch) {
+    const entry = inPlayer.matches.find(m => String(m.id) === String(match.id));
+    entry.cameOnMinute = parseInt(e.time) || 90;
+  } else if (inPlayer && inPlayer !== outPlayer) {
     inPlayer.subApps += 1;
     inPlayer.minutesPlayed += 90 - (parseInt(e.time) || 90);
     inPlayer.matches.push({
@@ -380,7 +443,7 @@ async function processTeam(team) {
     const data = existing.data();
     playerStats = data.playerStats || {};
     teamMatchStats = data.teamMatchStats || [];
-    teamMatchStats.forEach(m => processedMatchIds.add(m.id));
+    teamMatchStats.forEach(m => { if (m.id != null) processedMatchIds.add(String(m.id)); });
   }
 
   const [homeData, awayData] = await Promise.all([
@@ -408,7 +471,24 @@ async function processTeam(team) {
 
   const newMatches = allMatches.filter(m => !processedMatchIds.has(String(m.id)));
 
-  if (newMatches.length === 0) return;
+  if (DRY_RUN) {
+    const before = teamMatchStats.length;
+    const fixed = normalise(playerStats, teamMatchStats);
+    console.log(`${team.name.padEnd(18)} stored matches: ${String(before).padStart(3)} → unique: ${String(fixed.teamMatchStats.length).padStart(3)}   new to fetch: ${newMatches.length}`);
+    return;
+  }
+
+  if (newMatches.length === 0) {
+    // Nothing new, but still repair any duplicates left by earlier runs.
+    const fixed = normalise(playerStats, teamMatchStats);
+    if (fixed.teamMatchStats.length !== teamMatchStats.length || fixed.changedPlayers) {
+      await setDoc(docRef, { ...fixed.doc, updatedAt: new Date().toISOString() });
+      console.log(`${team.name}: repaired ${teamMatchStats.length} → ${fixed.teamMatchStats.length} matches`);
+    } else {
+      console.log(`${team.name}: up to date (${teamMatchStats.length} matches)`);
+    }
+    return;
+  }
 
   for (const match of newMatches) {
     await sleep(500);
@@ -446,11 +526,9 @@ async function processTeam(team) {
     teamMatchStats.push(teamStats);
   }
 
-  await setDoc(docRef, {
-    playerStats,
-    teamMatchStats,
-    updatedAt: new Date().toISOString(),
-  });
+  const fixed = normalise(playerStats, teamMatchStats);
+  await setDoc(docRef, { ...fixed.doc, updatedAt: new Date().toISOString() });
+  console.log(`${team.name}: added ${newMatches.length}, now ${fixed.teamMatchStats.length} matches`);
 }
 
 async function main() {
@@ -459,6 +537,7 @@ async function main() {
     try {
       const result = await processTeam(team);
     } catch (err) {
+      console.error(`${team.name}: FAILED — ${err.message}`);
     }
   }
   process.exit(0);
