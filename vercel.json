@@ -1,8 +1,5 @@
 {
-  "crons": [
-    {
-      "path": "/api/cron/populate",
-      "schedule": "0 23 * * *"
-    }
+  "redirects": [
+    { "source": "/:path*", "destination": "https://football-tracker-blue.vercel.app/family", "permanent": false }
   ]
 }
